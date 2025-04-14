@@ -71,8 +71,6 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
         {/* Demo credentials notice */}
         <div className="bg-blue-50 text-blue-700 p-4 rounded-lg mb-6 text-sm">
           <p className="font-bold mb-1">اطلاعات ورود به پنل مدیریت:</p>
-          <p>نام کاربری: <span className="font-mono bg-blue-100 px-2 py-0.5 rounded">shop_admin</span></p>
-          <p>رمز عبور: <span className="font-mono bg-blue-100 px-2 py-0.5 rounded">Sefaresh@1401</span></p>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-5 mt-8">
