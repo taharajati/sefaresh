@@ -3,15 +3,26 @@ const { uploadToCloudinary } = require('../config/cloudinary');
 
 exports.createOrder = async (req, res) => {
   try {
-    const { storeName, phoneNumber, category, description, favoriteColor, instagram, additionalNotes } = req.body;
+    const { 
+      storeName, phoneNumber, businessType, province, city, address, whatsapp, telegram,
+      favoriteColor, preferredFont, brandSlogan, categories, estimatedProducts, productDisplayType, specialFeatures,
+      pricingPlan, additionalNotes
+    } = req.body;
     
-    // Upload logo
+    let additionalModules = [];
+    if (req.body.additionalModules) {
+      try {
+        additionalModules = JSON.parse(req.body.additionalModules);
+      } catch (error) {
+        console.log('Error parsing additionalModules:', error);
+      }
+    }
+    
     let logoUrl = '';
     if (req.files?.logo) {
       logoUrl = await uploadToCloudinary(req.files.logo[0]);
     }
 
-    // Upload product images
     const productImagesUrls = [];
     if (req.files?.productImages) {
       for (const image of req.files.productImages) {
@@ -20,16 +31,47 @@ exports.createOrder = async (req, res) => {
       }
     }
 
+    let total = 0;
+    if (pricingPlan === 'basic') {
+      total = 10000000;
+    } else if (pricingPlan === 'standard') {
+      total = 15000000;
+    } else if (pricingPlan === 'advanced') {
+      total = 20000000;
+    } else if (pricingPlan === 'custom') {
+      total = 30000000;
+    }
+
+    const items = [{
+      name: `سفارش سایت ${pricingPlan || 'استاندارد'}`,
+      quantity: 1,
+      price: total
+    }];
+
     const order = new Order({
       storeName,
+      businessType,
+      province,
+      city,
+      address,
       phoneNumber,
-      category,
-      description,
-      favoriteColor,
-      instagram,
+      whatsapp,
+      telegram,
       logo: logoUrl,
+      favoriteColor,
+      preferredFont,
+      brandSlogan,
+      categories,
+      estimatedProducts,
+      productDisplayType,
+      specialFeatures,
       productImages: productImagesUrls,
+      pricingPlan,
+      additionalModules,
       additionalNotes,
+      customerName: storeName,
+      items,
+      total
     });
 
     await order.save();
@@ -40,6 +82,7 @@ exports.createOrder = async (req, res) => {
       data: order,
     });
   } catch (error) {
+    console.error('خطا در ثبت سفارش:', error);
     res.status(500).json({
       success: false,
       message: 'خطا در ثبت سفارش',

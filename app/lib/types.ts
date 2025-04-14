@@ -22,4 +22,10 @@ export interface ApiResponse {
   success: boolean;
   message: string;
   data?: any;
+  errorDetails?: {
+    status?: number;
+    statusText?: string;
+    error?: string;
+    [key: string]: any;
+  };
 } 

@@ -27,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fa" dir="rtl">
-      <body className={`${inter.variable} ${poppins.variable} font-sans antialiased bg-gray-50`}>
+      <body suppressHydrationWarning className={`${inter.variable} ${poppins.variable} font-sans antialiased bg-gray-50`}>
         {children}
       </body>
     </html>

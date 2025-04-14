@@ -6,7 +6,7 @@ import { HexColorPicker } from 'react-colorful';
 import { orderSchema } from '../lib/validation';
 import { submitOrder } from '../lib/api';
 import { useState } from 'react';
-import { Upload, Image, Instagram, Palette, Store, Phone, Tag, MessageSquare, Plus, ArrowRight, MapPin, MessageCircle, Package, ShoppingCart, Globe, FileText, Users, CreditCard, Zap, ChevronDown, CheckCircle } from 'lucide-react';
+import { Upload, Image, Instagram, Palette, Store, Phone, Tag, MessageSquare, Plus, ArrowRight, MapPin, MessageCircle, Package, ShoppingCart, Globe, FileText, Users, CreditCard, Zap, ChevronDown, CheckCircle, DollarSign, PhoneCall, Languages, BookOpen, Layers, BarChart } from 'lucide-react';
 import Link from 'next/link';
 
 interface FormValues {
@@ -104,6 +104,7 @@ const globalStyles = `
 const OrderForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<{success?: boolean; message?: string} | null>(null);
 
   const formik = useFormik<FormValues>({
     initialValues: {
@@ -131,6 +132,7 @@ const OrderForm = () => {
     validationSchema: orderSchema,
     onSubmit: async (values) => {
       setIsSubmitting(true);
+      setSubmitStatus(null);
       const formData = new FormData();
 
       // Handle string values
@@ -151,16 +153,67 @@ const OrderForm = () => {
         formData.append('productImages', file);
       });
 
+      console.log('Submitting form with values:', values);
+
       try {
         const response = await submitOrder(formData);
+        console.log('Form submission response:', response);
+        
         if (response.success) {
-          alert('سفارش شما با موفقیت ثبت شد');
+          // ذخیره سفارش در localStorage
+          if (response.data && response.data.order) {
+            try {
+              // خواندن سفارش‌های موجود از localStorage
+              const existingOrdersStr = localStorage.getItem('orders') || '[]';
+              const existingOrders = JSON.parse(existingOrdersStr);
+              
+              // اضافه کردن سفارش جدید
+              existingOrders.push(response.data.order);
+              
+              // ذخیره در localStorage
+              localStorage.setItem('orders', JSON.stringify(existingOrders));
+              console.log('سفارش با موفقیت در localStorage ذخیره شد');
+            } catch (storageError) {
+              console.error('خطا در ذخیره سفارش در localStorage:', storageError);
+            }
+          }
+          
+          setSubmitStatus({
+            success: true,
+            message: response.message || 'سفارش شما با موفقیت ثبت شد'
+          });
           formik.resetForm();
+          window.scrollTo({top: 0, behavior: 'smooth'});
         } else {
-          alert(response.message);
+          // اضافه کردن جزئیات بیشتر خطا
+          let errorMessage = response.message || 'خطا در ارسال سفارش';
+          
+          // اگر جزئیات خطا وجود داشت، آن را به پیام اضافه کنیم
+          if (response.errorDetails) {
+            const details = response.errorDetails;
+            if (details.status) {
+              errorMessage += ` (کد خطا: ${details.status})`;
+            }
+            console.error('خطای دقیق:', response.errorDetails);
+          }
+          
+          setSubmitStatus({
+            success: false,
+            message: errorMessage
+          });
+          
+          // اسکرول به بالای صفحه برای دیدن پیام خطا
+          window.scrollTo({top: 0, behavior: 'smooth'});
         }
       } catch (error) {
-        alert('خطا در ارسال سفارش');
+        console.error('خطای غیرمنتظره هنگام ارسال فرم:', error);
+        setSubmitStatus({
+          success: false,
+          message: error instanceof Error ? `خطا: ${error.message}` : 'خطای غیرمنتظره در ارسال سفارش'
+        });
+        
+        // اسکرول به بالای صفحه برای دیدن پیام خطا
+        window.scrollTo({top: 0, behavior: 'smooth'});
       } finally {
         setIsSubmitting(false);
       }
@@ -245,6 +298,49 @@ const OrderForm = () => {
     { id: 'training', name: 'آموزش ویدئویی', price: '300 هزار تومان' }
   ];
 
+  // Helper function to get the appropriate icon for each module
+  const getModuleIcon = (moduleId: string) => {
+    switch (moduleId) {
+      case 'payment':
+        return <DollarSign className="w-5 h-5" />;
+      case 'whatsapp':
+        return <PhoneCall className="w-5 h-5" />;
+      case 'multilingual':
+        return <Globe className="w-5 h-5" />;
+      case 'productUpload':
+        return <Upload className="w-5 h-5" />;
+      case 'logoDesign':
+        return <Palette className="w-5 h-5" />;
+      case 'seo':
+        return <BarChart className="w-5 h-5" />;
+      case 'blog':
+        return <BookOpen className="w-5 h-5" />;
+      case 'customAdmin':
+        return <Layers className="w-5 h-5" />;
+      case 'training':
+        return <Users className="w-5 h-5" />;
+      default:
+        return <Plus className="w-5 h-5" />;
+    }
+  };
+
+  // تابع برای ارسال فرم 
+  const handleFormSubmit = async () => {
+    console.log('Manual submit triggered');
+    
+    // حتماً همه فیلدها را به عنوان لمس شده علامت‌گذاری کنیم تا خطاهای همه فیلدها نمایش داده شود
+    Object.keys(formik.values).forEach((field) => {
+      formik.setFieldTouched(field, true);
+    });
+    
+    // اعتبارسنجی دستی فرم
+    const errors = await formik.validateForm();
+    console.log('Validation errors:', errors);
+    
+    // ارسال فرم
+    formik.submitForm();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -265,7 +361,55 @@ const OrderForm = () => {
           <p className="text-gray-700 text-lg leading-relaxed">لطفاً اطلاعات فروشگاه خود را وارد کنید</p>
         </div>
 
-        <form onSubmit={formik.handleSubmit} className="bg-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] rounded-3xl p-8 md:p-10 space-y-12 border border-gray-100">
+        <div className="md:p-8 p-4">
+          <style jsx global>{globalStyles}</style>
+          
+          <div className="space-y-10">
+            {/* Status Message */}
+            {submitStatus && (
+              <div className={`mb-6 p-4 rounded-lg ${submitStatus.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                <div className="flex items-start">
+                  {submitStatus.success ? (
+                    <CheckCircle className="h-6 w-6 text-green-600 ml-3 mt-0.5" />
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600 ml-3 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                  <div>
+                    <p className={`font-medium ${submitStatus.success ? 'text-green-800' : 'text-red-800'}`}>
+                      {submitStatus.message}
+                    </p>
+                    {!submitStatus.success && (
+                      <p className="text-sm text-red-600 mt-1">
+                        لطفاً مجدداً تلاش کنید یا با پشتیبانی تماس بگیرید (021-12345678)
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Validation Errors Summary */}
+            {Object.keys(formik.errors).length > 0 && formik.submitCount > 0 && (
+              <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">
+                <div className="flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600 ml-3 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <h3 className="text-red-800 font-medium mb-2">لطفاً موارد زیر را اصلاح کنید:</h3>
+                    <ul className="list-disc list-inside text-red-700 text-sm space-y-1 mr-5">
+                      {Object.entries(formik.errors).map(([field, message]) => (
+                        <li key={field}>{message as string}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <form className="bg-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] rounded-3xl p-8 md:p-10 space-y-12 border border-gray-100">
           {/* Basic Information Section */}
           <div className="space-y-8">
             <div className="flex items-center gap-4 mb-8">
@@ -605,41 +749,160 @@ const OrderForm = () => {
               <h2 className="section-title">انتخاب پلن قیمت‌گذاری</h2>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {pricingPlans.map((plan) => (
-                <div 
-                  key={plan.id} 
-                  className={`plan-card ${formik.values.pricingPlan === plan.id ? 'selected' : ''} cursor-pointer`}
-                  onClick={() => formik.setFieldValue('pricingPlan', plan.id)}
-                >
-                  <div className="plan-title">{plan.name}</div>
-                  <div className="plan-price">{plan.price}</div>
-                  <ul className="plan-features">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-violet-600 flex-shrink-0 mt-0.5" />
-                        <span>{feature}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                  {/* Basic Plan */}
+                  <div 
+                    className={`pricing-card bg-white rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl border border-gray-100 group hover:-translate-y-1 ${formik.values.pricingPlan === 'basic' ? 'ring-2 ring-blue-500 border-transparent' : ''} cursor-pointer`}
+                    onClick={() => formik.setFieldValue('pricingPlan', 'basic')}
+                  >
+                    <div className="p-6 border-b border-gray-100">
+                      <div className="inline-block bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-sm font-medium mb-4">پلن پایه</div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-bold text-gray-900">۷-۱۰</span>
+                        <span className="text-xl font-medium text-gray-500">میلیون تومان</span>
+                      </div>
+                      <p className="mt-4 text-gray-600 text-sm">مناسب برای کسب و کارهای کوچک و تازه شروع شده</p>
+                    </div>
+                    <div className="p-6">
+                      <ul className="space-y-4">
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                          <span className="text-black">طراحی فروشگاه ساده</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                          <span className="text-black">بدون سبد خرید</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                          <span className="text-black" >طراحی ریسپانسیو</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                          <span className="text-black">فرم سفارش</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Standard Plan */}
+                  <div 
+                    className={`pricing-card bg-white rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl border border-gray-100 group hover:-translate-y-1 ${formik.values.pricingPlan === 'standard' ? 'ring-2 ring-indigo-500 border-transparent' : ''} cursor-pointer`}
+                    onClick={() => formik.setFieldValue('pricingPlan', 'standard')}
+                    >
+                    <div className="p-6 border-b border-gray-100">
+                      <div className="inline-block bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-sm font-medium mb-4">پلن استاندارد</div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-bold text-gray-900">۱۲-۱۶</span>
+                        <span className="text-xl font-medium text-gray-500">میلیون تومان</span>
+                      </div>
+                      <p className="mt-4 text-gray-600 text-sm">مناسب برای کسب و کارهای متوسط با نیاز به مدیریت محصولات</p>
+                    </div>
+                    <div className="p-6">
+                      <ul className="space-y-4">
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-indigo-500 shrink-0 mt-0.5" />
+                          <span className="text-black">سیستم مدیریت محصولات</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-indigo-500 shrink-0 mt-0.5" />
+                          <span className="text-black">دسته‌بندی</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-indigo-500 shrink-0 mt-0.5" />
+                          <span className="text-black">فرم درخواست قیمت</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-indigo-500 shrink-0 mt-0.5" />
+                          <span className="text-black">اتصال به واتساپ</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Advanced Plan */}
+                  <div 
+                    className={`pricing-card bg-white rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl border border-violet-200 group hover:-translate-y-1 relative ${formik.values.pricingPlan === 'advanced' ? 'ring-2 ring-violet-500 border-transparent' : ''} cursor-pointer`}
+                    onClick={() => formik.setFieldValue('pricingPlan', 'advanced')}
+                  >
+                    <div className="absolute top-0 right-0 left-0 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-center text-sm py-1 font-medium">پیشنهاد ویژه</div>
+                    <div className="p-6 border-b border-gray-100 pt-9">
+                      <div className="inline-block bg-violet-50 text-violet-600 px-3 py-1 rounded-lg text-sm font-medium mb-4">پلن پیشرفته</div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-bold text-gray-900">۱۸-۲۵</span>
+                        <span className="text-xl font-medium text-gray-500">میلیون تومان</span>
+                      </div>
+                      <p className="mt-4 text-gray-600 text-sm">مناسب برای کسب و کارهای فعال با نیاز به سیستم فروش کامل</p>
+                    </div>
+                    <div className="p-6">
+                      <ul className="space-y-4">
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-violet-500 shrink-0 mt-0.5" />
+                          <span className="text-black">سبد خرید</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-violet-500 shrink-0 mt-0.5" />
+                          <span className="text-black">ثبت‌نام مشتریان</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-violet-500 shrink-0 mt-0.5" />
+                          <span className="text-black">پنل مدیریت پیشرفته</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-violet-500 shrink-0 mt-0.5" />
+                          <span className="text-black">اتصال درگاه پرداخت</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Custom Plan */}
+                  <div 
+                    className={`pricing-card bg-white rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl border border-gray-100 group hover:-translate-y-1 ${formik.values.pricingPlan === 'custom' ? 'ring-2 ring-purple-500 border-transparent' : ''} cursor-pointer`}
+                    onClick={() => formik.setFieldValue('pricingPlan', 'custom')}
+                  >
+                    <div className="p-6 border-b border-gray-100">
+                      <div className="inline-block bg-purple-50 text-purple-600 px-3 py-1 rounded-lg text-sm font-medium mb-4">پلن اختصاصی</div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-bold text-gray-900">۳۰+</span>
+                        <span className="text-xl font-medium text-gray-500">میلیون تومان</span>
+                      </div>
+                      <p className="mt-4 text-gray-600 text-sm">مناسب برای کسب و کارهای بزرگ با نیازهای خاص</p>
+                    </div>
+                    <div className="p-6">
+                      <ul className="space-y-4">
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-purple-500 shrink-0 mt-0.5" />
+                          <span className="text-black">طراحی اختصاصی UI/UX</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-purple-500 shrink-0 mt-0.5" />
+                          <span className="text-black">چندزبانه</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-purple-500 shrink-0 mt-0.5" />
+                          <span className="text-black">اتصال به ERP</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-5 w-5 text-purple-500 shrink-0 mt-0.5" />
+                          <span className="text-black">سیستم انبارداری</span>
                       </li>
-                    ))}
                   </ul>
-                </div>
-              ))}
+                    </div>
+                  </div>
             </div>
             {formik.touched.pricingPlan && formik.errors.pricingPlan && (
               <p className="form-error text-center">{formik.errors.pricingPlan}</p>
             )}
 
-            <div className="mt-8">
-              <div className="form-group">
-                <label className="form-label">
-                  <Zap className="w-5 h-5 text-violet-600" />
-                  ماژول‌های اضافی
-                </label>
-                <div className="space-y-2 bg-gray-50 p-6 rounded-xl">
-                  <p className="text-gray-700 font-medium mb-4">امکانات اضافی که می‌توانید به پلن خود اضافه کنید:</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Additional Modules */}
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mt-8">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-6">ماژول‌های اضافی</h3>
+                  <p className="text-gray-600 mb-8">امکانات اضافی که می‌توانید به پلن خود اضافه کنید:</p>
+                  
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {additionalModules.map((module) => (
-                      <label key={module.id} className="flex items-center gap-3 p-3 hover:bg-violet-50 rounded-lg transition-colors duration-200 cursor-pointer">
+                      <label key={module.id} className="flex items-start gap-3 p-4 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={formik.values.additionalModules?.includes(module.id) || false}
@@ -657,22 +920,20 @@ const OrderForm = () => {
                           }}
                           className="hidden"
                         />
-                        <div className="w-5 h-5 flex-shrink-0 border border-gray-300 rounded flex items-center justify-center bg-white">
-                          {formik.values.additionalModules?.includes(module.id) && 
+                      <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-50 text-violet-600 shrink-0 border border-gray-200">
+                        {getModuleIcon(module.id)}
+                        {formik.values.additionalModules?.includes(module.id) && (
+                          <div className="absolute">
                             <CheckCircle className="w-5 h-5 text-violet-600" />
-                          }
+                          </div>
+                        )}
                         </div>
                         <div>
-                          <span className="text-sm text-gray-800 font-medium block">{module.name}</span>
-                          <span className="text-violet-600 text-xs font-medium">{module.price}</span>
+                        <h4 className="font-medium text-gray-900">{module.name}</h4>
+                        <p className="text-sm text-violet-600 font-medium">{module.price}</p>
                         </div>
                       </label>
                     ))}
-                  </div>
-                </div>
-                {formik.touched.additionalModules && formik.errors.additionalModules && (
-                  <p className="form-error">{String(formik.errors.additionalModules)}</p>
-                )}
               </div>
             </div>
           </div>
@@ -697,14 +958,22 @@ const OrderForm = () => {
 
           <div className="flex justify-end">
             <button
-              type="submit"
+                  type="button"
               disabled={isSubmitting}
-              className="btn btn-primary px-8 py-3 text-base font-bold rounded-xl shadow-lg hover:shadow-xl hover:translate-y-[-2px] active:translate-y-[0px]"
-            >
-              {isSubmitting ? 'در حال ارسال...' : 'ثبت سفارش'}
+                  onClick={handleFormSubmit}
+                  className="btn btn-primary px-8 py-3 text-base font-bold rounded-xl shadow-lg hover:shadow-xl hover:translate-y-[-2px] active:translate-y-[0px] min-w-[150px]"
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center">
+                      <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin ml-2"></div>
+                      در حال ارسال...
+                    </div>
+                  ) : 'ثبت سفارش'}
             </button>
           </div>
         </form>
+          </div>
+        </div>
       </div>
     </div>
   );
