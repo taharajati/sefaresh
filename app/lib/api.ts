@@ -1,14 +1,14 @@
 import axios from 'axios';
 import { Order, ApiResponse } from './types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://5.34.204.73:3003/api';
 
 export const submitOrder = async (orderData: FormData): Promise<ApiResponse> => {
   console.log('Calling API to submit order...');
   
   try {
     // ارسال درخواست به API بک‌اند واقعی
-    const response = await fetch('http://localhost:5000/api/orders', {
+    const response = await fetch('http://5.34.204.73:3003/api/orders', {
       method: 'POST',
       body: orderData
     }).catch(error => {
