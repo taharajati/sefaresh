@@ -15,26 +15,36 @@ const logAPIAction = (action: string, result: any, success: boolean) => {
 
 // بررسی اتصال به سرور
 export const checkServerConnection = async (): Promise<boolean> => {
-  if (hasCheckedServer) return isServerAvailable;
-  
   try {
     console.log('Checking server connection...');
-    const response = await fetch(`${API_URL}/health`, { 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    
+    // استفاده از متد GET به جای OPTIONS برای اطمینان از عملکرد صحیح
+    const response = await fetch(`${API_URL}/health`, {
       method: 'GET',
       headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       },
-      // تایم‌اوت 3 ثانیه
-      signal: AbortSignal.timeout(3000)
-    }).catch(() => null);
+      signal: controller.signal
+    });
     
-    isServerAvailable = response !== null && response.ok === true;
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      console.log('Server is available');
+      isServerAvailable = true;
+    } else {
+      console.warn('Server responded with status:', response.status);
+      isServerAvailable = false;
+    }
+    
     hasCheckedServer = true;
-    console.log(`Server connection check result: ${isServerAvailable ? 'AVAILABLE' : 'NOT AVAILABLE'}`);
     return isServerAvailable;
   } catch (error) {
-    console.warn('Server check failed:', error);
+    console.error('Server connection check failed:', error);
     isServerAvailable = false;
     hasCheckedServer = true;
     return false;

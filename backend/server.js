@@ -8,6 +8,20 @@ const multer = require('multer');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// بهبود تنظیمات CORS برای پاسخگویی به درخواست‌های OPTIONS
+app.use(cors({
+  origin: '*', // اجازه دسترسی به همه دامنه‌ها
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}));
+
+// Middleware
+app.use(express.json());
+// مسیر استاتیک برای نمایش تصاویر
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // تنظیمات ذخیره‌سازی برای آپلود فایل
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -35,12 +49,6 @@ const upload = multer({
   }
 });
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-// مسیر استاتیک برای نمایش تصاویر
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 // افزودن نقطه پایانی برای چک کردن سلامت سرور
 app.get('/api/health', (req, res) => {
   res.status(200).json({ 
@@ -48,6 +56,11 @@ app.get('/api/health', (req, res) => {
     message: 'Server is running',
     timestamp: new Date().toISOString()
   });
+});
+
+// اطمینان از پاسخگویی صحیح به درخواست‌های OPTIONS برای همه مسیرها
+app.options('*', (req, res) => {
+  res.status(204).end();
 });
 
 // مسیر API برای ورود ادمین
