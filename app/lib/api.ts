@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { Order, ApiResponse } from './types';
 
-// آدرس API محلی 
-const API_URL = '/api';
+// آدرس API سرور 
+const API_URL = 'http://5.34.204.73:3002/api';
 
 // متغیر برای کنترل وضعیت اتصال به سرور
 let isServerAvailable = false;
