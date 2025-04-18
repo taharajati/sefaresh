@@ -1,4 +1,4 @@
-import OrderForm from '../components/OrderForm';
+import OrderForm from '@/app/components/OrderForm';
 import { ArrowRight, ClipboardCheck, Smartphone, ShoppingBag, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 

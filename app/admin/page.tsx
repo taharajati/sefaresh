@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import AdminLogin from '../components/AdminLogin';
-import AdminPage from '../components/AdminPage';
+import AdminLogin from '@/app/components/AdminLogin';
+import AdminPage from '@/app/components/AdminPage';
 
 export default function Admin() {
   const [token, setToken] = useState<string | null>(null);
