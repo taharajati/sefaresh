@@ -154,56 +154,55 @@ export default function OrdersList({ token }: OrdersListProps) {
       setLoading(true);
       
       try {
-        // اگر توکن وجود داشت، سعی کن از API دریافت کنی
+        // ابتدا سعی می‌کنیم داده‌ها را از API دریافت کنیم
         if (token) {
           const response = await getOrders(token);
           if (response.success && response.data) {
+            console.log("داده‌های دریافتی از API:", response.data);
             setOrders(response.data);
             setLoading(false);
             return;
+          } else {
+            console.warn("دریافت داده از API ناموفق بود:", response);
           }
         }
         
-        // اگر به API دسترسی نداشتیم، از localStorage استفاده کن
+        // اگر API در دسترس نبود، از localStorage استفاده می‌کنیم
         try {
           const ordersFromStorage = localStorage.getItem('orders');
+          console.log("داده‌های ذخیره شده در localStorage:", ordersFromStorage);
+          
           if (ordersFromStorage) {
             const parsedOrders = JSON.parse(ordersFromStorage);
             if (Array.isArray(parsedOrders) && parsedOrders.length > 0) {
-              // Убедимся, что все необходимые поля существуют
+              // پردازش داده‌های دریافتی
               const processedOrders = parsedOrders.map((order: any) => {
-                // Если pricingPlan не указан, проверим, есть ли он в каком-то другом поле
-                if (!order.pricingPlan && order.formData) {
-                  try {
-                    const formData = JSON.parse(order.formData);
-                    if (formData.pricingPlan) {
-                      order.pricingPlan = formData.pricingPlan;
-                    }
-                  } catch (e) {
-                    console.error('Ошибка при парсинге formData:', e);
-                  }
-                }
-                
-                // Проверим additionalModules
-                if (order.additionalModules) {
-                  // Если это строка в формате JSON, преобразуем в массив
-                  if (typeof order.additionalModules === 'string' && order.additionalModules.startsWith('[')) {
-                    try {
-                      order.additionalModules = JSON.parse(order.additionalModules);
-                    } catch (e) {
-                      console.error('Ошибка при парсинге additionalModules:', e);
-                    }
-                  }
-                }
-                
-                // Установим значение по умолчанию для pricingPlan, если он все еще не определен
-                if (!order.pricingPlan) {
-                  order.pricingPlan = 'standard';
-                }
-                
-                return order;
+                // اطمینان از وجود همه فیلدهای لازم
+                return {
+                  id: order.id || `ORD-${Math.floor(Math.random() * 10000)}`,
+                  customerName: order.customerName || order.storeName || 'بدون نام',
+                  phoneNumber: order.phoneNumber || 'بدون شماره',
+                  address: order.address || '',
+                  storeName: order.storeName || '',
+                  businessType: order.businessType || '',
+                  province: order.province || '',
+                  city: order.city || '',
+                  whatsapp: order.whatsapp || '',
+                  telegram: order.telegram || '',
+                  pricingPlan: order.pricingPlan || 'standard',
+                  additionalModules: order.additionalModules || [],
+                  items: order.items || [{
+                    name: `سفارش سایت ${order.pricingPlan || 'استاندارد'}`,
+                    quantity: 1,
+                    price: 15000000
+                  }],
+                  total: order.total || 15000000,
+                  status: order.status || 'pending',
+                  createdAt: order.createdAt || new Date().toISOString()
+                };
               });
               
+              console.log("داده‌های پردازش شده:", processedOrders);
               setOrders(processedOrders);
               setLoading(false);
               return;
@@ -214,6 +213,7 @@ export default function OrdersList({ token }: OrdersListProps) {
         }
         
         // اگر هیچ داده‌ای دریافت نشد، از داده‌های نمونه استفاده کن
+        console.log("استفاده از داده‌های نمونه");
         setOrders(mockOrders);
         setLoading(false);
       } catch (error) {

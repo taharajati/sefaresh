@@ -1,40 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import AdminPage from '../components/admin/AdminPage';
+import { useState, useEffect } from 'react';
 import AdminLogin from '../components/AdminLogin';
+import AdminPage from '../components/AdminPage';
 
-export default function AdminPageRoute() {
+export default function Admin() {
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
-    // در اجرای سمت کلاینت، اطلاعات توکن را از localStorage بخوان
+    // بررسی localStorage برای توکن ذخیره شده
     const storedToken = localStorage.getItem('adminToken');
-    setToken(storedToken);
-    setIsLoading(false);
+    if (storedToken) {
+      setToken(storedToken);
+    }
   }, []);
+
+  const handleLogin = (newToken: string) => {
+    setToken(newToken);
+  };
 
   const handleLogout = () => {
     setToken(null);
   };
 
-  // اگر در حال بارگیری هستیم، یک لودینگ نشان دهیم
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  // اگر توکن وجود نداشت، فرم لاگین را نمایش بده
   if (!token) {
-    return <AdminLogin onLogin={(newToken) => setToken(newToken)} />;
+    return <AdminLogin onLogin={handleLogin} />;
   }
 
-  // اگر توکن داشتیم، پنل ادمین را نمایش بده
   return <AdminPage token={token} onLogout={handleLogout} />;
 } 
