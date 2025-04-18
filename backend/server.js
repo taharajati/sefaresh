@@ -87,6 +87,18 @@ db.serialize(() => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  
+  // ایجاد جدول تصاویر گالری اگر وجود ندارد
+  db.run(`
+    CREATE TABLE IF NOT EXISTS gallery_images (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT,
+      category TEXT,
+      image_path TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 });
 
 // مسیر API برای آپلود تصویر
@@ -106,6 +118,111 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// API برای مدیریت تصاویر گالری
+// دریافت همه تصاویر گالری
+app.get('/api/gallery', (req, res) => {
+  const sql = 'SELECT * FROM gallery_images ORDER BY created_at DESC';
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows);
+  });
+});
+
+// افزودن تصویر جدید به گالری
+app.post('/api/gallery', upload.single('image'), (req, res) => {
+  const { title, description, category } = req.body;
+  
+  if (!title || !req.file) {
+    return res.status(400).json({ error: 'عنوان و تصویر الزامی هستند' });
+  }
+  
+  const imagePath = `/uploads/${req.file.filename}`;
+  
+  const sql = `INSERT INTO gallery_images (title, description, category, image_path) VALUES (?, ?, ?, ?)`;
+  db.run(sql, [title, description, category, imagePath], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    // دریافت تصویر تازه ایجاد شده
+    db.get('SELECT * FROM gallery_images WHERE id = ?', [this.lastID], (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.status(201).json(row);
+    });
+  });
+});
+
+// حذف تصویر از گالری
+app.delete('/api/gallery/:id', (req, res) => {
+  const { id } = req.params;
+  
+  // ابتدا فایل تصویر را پیدا می‌کنیم
+  db.get('SELECT image_path FROM gallery_images WHERE id = ?', [id], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (!row) {
+      return res.status(404).json({ error: 'تصویر مورد نظر یافت نشد' });
+    }
+    
+    // حذف رکورد از دیتابیس
+    db.run('DELETE FROM gallery_images WHERE id = ?', [id], function(err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'تصویر مورد نظر یافت نشد' });
+      }
+      
+      // حذف فایل فیزیکی تصویر (اختیاری)
+      const filePath = path.join(__dirname, row.image_path.replace('/uploads/', 'uploads/'));
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (error) {
+        console.error('Error deleting image file:', error);
+      }
+      
+      res.json({ message: 'تصویر با موفقیت حذف شد' });
+    });
+  });
+});
+
+// بروزرسانی اطلاعات تصویر
+app.put('/api/gallery/:id', (req, res) => {
+  const { id } = req.params;
+  const { title, description, category } = req.body;
+  
+  if (!title) {
+    return res.status(400).json({ error: 'عنوان تصویر الزامی است' });
+  }
+  
+  const sql = `UPDATE gallery_images SET title = ?, description = ?, category = ? WHERE id = ?`;
+  db.run(sql, [title, description, category, id], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'تصویر مورد نظر یافت نشد' });
+    }
+    
+    db.get('SELECT * FROM gallery_images WHERE id = ?', [id], (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(row);
+    });
+  });
 });
 
 // API Routes برای محصولات
