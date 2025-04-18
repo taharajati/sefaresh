@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Order, ApiResponse } from './types';
 
 // آدرس API با آدرس سرور واقعی
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://5.34.204.73:3002/api';
 
 // متغیر برای کنترل وضعیت اتصال به سرور
 let isServerAvailable = false;
@@ -15,36 +15,26 @@ const logAPIAction = (action: string, result: any, success: boolean) => {
 
 // بررسی اتصال به سرور
 export const checkServerConnection = async (): Promise<boolean> => {
+  if (hasCheckedServer) return isServerAvailable;
+  
   try {
     console.log('Checking server connection...');
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
-    
-    // استفاده از متد GET به جای OPTIONS برای اطمینان از عملکرد صحیح
-    const response = await fetch(`${API_URL}/health`, {
+    const response = await fetch(`${API_URL}/health`, { 
       method: 'GET',
       headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
       },
-      signal: controller.signal
-    });
+      // تایم‌اوت 3 ثانیه
+      signal: AbortSignal.timeout(3000)
+    }).catch(() => null);
     
-    clearTimeout(timeoutId);
-    
-    if (response.ok) {
-      console.log('Server is available');
-      isServerAvailable = true;
-    } else {
-      console.warn('Server responded with status:', response.status);
-      isServerAvailable = false;
-    }
-    
+    isServerAvailable = response !== null && response.ok === true;
     hasCheckedServer = true;
+    console.log(`Server connection check result: ${isServerAvailable ? 'AVAILABLE' : 'NOT AVAILABLE'}`);
     return isServerAvailable;
   } catch (error) {
-    console.error('Server connection check failed:', error);
+    console.warn('Server check failed:', error);
     isServerAvailable = false;
     hasCheckedServer = true;
     return false;
@@ -244,94 +234,6 @@ export const getOrders = async (token: string): Promise<ApiResponse> => {
     return getOrdersFromLocalStorage();
   }
 };
-
-// دریافت اطلاعات یک سفارش با شناسه خاص
-export const getOrderById = async (id: string, token: string): Promise<ApiResponse> => {
-  // اگر هنوز وضعیت سرور را چک نکردیم
-  if (!hasCheckedServer) {
-    await checkServerConnection();
-  }
-  
-  // اگر سرور در دسترس نیست، مستقیم از localStorage استفاده کنیم
-  if (!isServerAvailable) {
-    console.log('Server is not available, using localStorage directly for order');
-    return getOrderByIdFromLocalStorage(id);
-  }
-  
-  try {
-    console.log(`Fetching order ${id} from API with token:`, token);
-    
-    const response = await axios.get(`${API_URL}/orders/${id}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      },
-      timeout: 5000 // 5 second timeout
-    });
-    
-    logAPIAction('getOrderById', response.data, response.data.success);
-    return response.data;
-  } catch (error) {
-    console.error(`Error fetching order ${id} from API:`, error);
-    
-    // اگر به API دسترسی نداریم، از localStorage استفاده کن
-    return getOrderByIdFromLocalStorage(id);
-  }
-};
-
-// دریافت یک سفارش از localStorage با شناسه خاص
-function getOrderByIdFromLocalStorage(id: string): ApiResponse {
-  try {
-    console.log(`Getting order ${id} from localStorage`);
-    const ordersFromStorage = localStorage.getItem('orders');
-    
-    if (!ordersFromStorage) {
-      console.log('No orders found in localStorage');
-      return { 
-        success: false, 
-        message: 'سفارش مورد نظر یافت نشد', 
-        data: null 
-      };
-    }
-    
-    const parsedOrders = JSON.parse(ordersFromStorage);
-    if (!Array.isArray(parsedOrders)) {
-      console.warn('Orders in localStorage is not an array');
-      return { 
-        success: false, 
-        message: 'فرمت داده‌های ذخیره شده نامعتبر است', 
-        data: null 
-      };
-    }
-    
-    const order = parsedOrders.find((order: any) => order.id === id);
-    
-    if (!order) {
-      console.log(`Order ${id} not found in localStorage`);
-      return { 
-        success: false, 
-        message: 'سفارش مورد نظر یافت نشد', 
-        data: null 
-      };
-    }
-    
-    console.log(`Found order ${id} in localStorage`);
-    return { 
-      success: true, 
-      message: 'سفارش مورد نظر یافت شد', 
-      data: order 
-    };
-  } catch (error) {
-    console.error(`Error getting order ${id} from localStorage:`, error);
-    return { 
-      success: false, 
-      message: 'خطا در دریافت سفارش از حافظه محلی', 
-      data: null 
-    };
-  }
-}
 
 // دریافت سفارش‌ها از localStorage
 function getOrdersFromLocalStorage(): ApiResponse {

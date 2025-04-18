@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import OrdersList from '../OrdersList';
-import { Layers, Users, Settings, Package, Home, LogOut, Image } from 'lucide-react';
+import { Layers, Users, Settings, Package, Home, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { logout, getOrders } from '../../lib/api';
 
@@ -57,14 +57,6 @@ const AdminPage = ({ token, onLogout }: AdminPageProps) => {
               <Layers className={`ml-2 h-5 w-5 ${activeTab === 'products' ? 'text-violet-600' : 'text-gray-500'}`} />
               مدیریت محصولات
             </button>
-            
-            <Link 
-              href="/admin/gallery"
-              className="flex items-center px-2 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-50"
-            >
-              <Image className="ml-2 h-5 w-5 text-gray-500" />
-              مدیریت گالری تصاویر
-            </Link>
             
             <button 
               onClick={() => setActiveTab('customers')}
@@ -159,15 +151,6 @@ const AdminPage = ({ token, onLogout }: AdminPageProps) => {
               <Layers className={`ml-2 h-5 w-5 ${activeTab === 'products' ? 'text-violet-600' : 'text-gray-500'}`} />
               مدیریت محصولات
             </button>
-            
-            <Link 
-              href="/admin/gallery"
-              className="flex items-center px-2 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-50"
-              onClick={() => document.getElementById('mobile-menu')?.classList.add('hidden')}
-            >
-              <Image className="ml-2 h-5 w-5 text-gray-500" />
-              مدیریت گالری تصاویر
-            </Link>
             
             <button 
               onClick={() => {

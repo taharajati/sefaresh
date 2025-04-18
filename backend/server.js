@@ -6,21 +6,7 @@ const sqlite3 = require('sqlite3').verbose();
 const multer = require('multer');
 
 const app = express();
-const PORT = process.env.PORT || 3002;
-
-// بهبود تنظیمات CORS برای پاسخگویی به درخواست‌های OPTIONS
-app.use(cors({
-  origin: '*', // اجازه دسترسی به همه دامنه‌ها
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-}));
-
-// Middleware
-app.use(express.json());
-// مسیر استاتیک برای نمایش تصاویر
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const PORT = process.env.PORT || 3001;
 
 // تنظیمات ذخیره‌سازی برای آپلود فایل
 const storage = multer.diskStorage({
@@ -49,123 +35,11 @@ const upload = multer({
   }
 });
 
-// افزودن نقطه پایانی برای چک کردن سلامت سرور
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'ok',
-    message: 'Server is running',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// اطمینان از پاسخگویی صحیح به درخواست‌های OPTIONS برای همه مسیرها
-app.options('*', (req, res) => {
-  res.status(204).end();
-});
-
-// مسیر API برای ورود ادمین
-app.post('/api/admin/login', (req, res) => {
-  const { username, password } = req.body;
-  
-  // بررسی اعتبارسنجی ساده
-  if (username === 'shop_admin' && password === 'Sefaresh@1401') {
-    // تولید یک توکن ساده (در یک محیط واقعی، باید از JWT یا راه حل امن‌تری استفاده شود)
-    const token = 'admin_token_' + Date.now();
-    
-    res.json({
-      success: true,
-      message: 'ورود موفقیت‌آمیز بود',
-      data: { token }
-    });
-  } else {
-    res.status(401).json({
-      success: false,
-      message: 'نام کاربری یا رمز عبور اشتباه است'
-    });
-  }
-});
-
-// مسیر API برای ایجاد سفارش‌های نمونه (فقط برای تست)
-app.get('/api/test/create-sample-orders', (req, res) => {
-  // تعداد سفارش‌هایی که می‌خواهیم ایجاد کنیم
-  const count = req.query.count ? parseInt(req.query.count) : 5;
-  
-  // آرایه‌ی وعده‌ها برای ذخیره‌ سفارش‌ها
-  const orderPromises = [];
-  
-  // ایجاد سفارش‌های نمونه
-  for (let i = 0; i < count; i++) {
-    const customer = `مشتری نمونه ${i+1}`;
-    const items = JSON.stringify([
-      {
-        name: `سفارش سایت ${['basic', 'standard', 'advanced'][i % 3]}`,
-        quantity: 1,
-        price: 10000000 + (i * 5000000)
-      }
-    ]);
-    const total = 10000000 + (i * 5000000);
-    const status = ['pending', 'confirmed', 'delivered', 'cancelled'][i % 4];
-    
-    const orderPromise = new Promise((resolve, reject) => {
-      const sql = `INSERT INTO orders (customer, items, status, total) VALUES (?, ?, ?, ?)`;
-      db.run(sql, [customer, items, status, total], function(err) {
-        if (err) {
-          console.error('Error creating sample order:', err);
-          reject(err);
-        } else {
-          resolve(this.lastID);
-        }
-      });
-    });
-    
-    orderPromises.push(orderPromise);
-  }
-  
-  // اجرای همه‌ی وعده‌ها
-  Promise.all(orderPromises)
-    .then(orderIds => {
-      res.json({
-        success: true,
-        message: `${orderIds.length} سفارش نمونه با موفقیت ایجاد شد`,
-        data: { orderIds }
-      });
-    })
-    .catch(error => {
-      res.status(500).json({
-        success: false,
-        message: 'خطا در ایجاد سفارش‌های نمونه',
-        error: error.message
-      });
-    });
-});
-
-// میدلور احراز هویت ساده
-const authenticate = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  
-  // اگر هدر احراز هویت وجود ندارد یا با 'Bearer ' شروع نمی‌شود
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    // برای ساده‌سازی آزمایش، اجازه می‌دهیم بدون احراز هویت هم درخواست‌ها پاسخ داده شوند
-    console.warn('Authentication header missing or invalid, proceeding anyway');
-    return next();
-  }
-  
-  // استخراج توکن از هدر
-  const token = authHeader.split(' ')[1];
-  
-  // در یک محیط واقعی، اینجا توکن بررسی و اطلاعات کاربر استخراج می‌شود
-  // برای این مثال، فقط وجود توکن را چک می‌کنیم
-  if (!token) {
-    // برای ساده‌سازی آزمایش، اجازه می‌دهیم بدون احراز هویت هم درخواست‌ها پاسخ داده شوند
-    console.warn('Token is empty, proceeding anyway');
-    return next();
-  }
-  
-  // در یک پیاده‌سازی واقعی، اینجا توکن را بررسی می‌کنیم
-  // اما در این مثال، فقط اجازه می‌دهیم درخواست ادامه یابد
-  console.log('Authentication successful with token:', token);
-  next();
-};
+// Middleware
+app.use(cors());
+app.use(express.json());
+// مسیر استاتیک برای نمایش تصاویر
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // اطمینان از وجود پوشه uploads
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -213,32 +87,6 @@ db.serialize(() => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  
-  // ایجاد جدول تصاویر گالری اگر وجود ندارد
-  db.run(`
-    CREATE TABLE IF NOT EXISTS gallery_images (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      description TEXT,
-      category TEXT,
-      image_path TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-  
-  // ایجاد جدول تصاویر نمونه محصولات اگر وجود ندارد
-  db.run(`
-    CREATE TABLE IF NOT EXISTS product_images (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      order_id INTEGER,
-      title TEXT,
-      description TEXT,
-      category TEXT,
-      image_path TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (order_id) REFERENCES orders (id)
-    )
-  `);
 });
 
 // مسیر API برای آپلود تصویر
@@ -258,111 +106,6 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-});
-
-// API برای مدیریت تصاویر گالری
-// دریافت همه تصاویر گالری
-app.get('/api/gallery', (req, res) => {
-  const sql = 'SELECT * FROM gallery_images ORDER BY created_at DESC';
-  db.all(sql, [], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    res.json(rows);
-  });
-});
-
-// افزودن تصویر جدید به گالری
-app.post('/api/gallery', upload.single('image'), (req, res) => {
-  const { title, description, category } = req.body;
-  
-  if (!title || !req.file) {
-    return res.status(400).json({ error: 'عنوان و تصویر الزامی هستند' });
-  }
-  
-  const imagePath = `/uploads/${req.file.filename}`;
-  
-  const sql = `INSERT INTO gallery_images (title, description, category, image_path) VALUES (?, ?, ?, ?)`;
-  db.run(sql, [title, description, category, imagePath], function(err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    
-    // دریافت تصویر تازه ایجاد شده
-    db.get('SELECT * FROM gallery_images WHERE id = ?', [this.lastID], (err, row) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      res.status(201).json(row);
-    });
-  });
-});
-
-// حذف تصویر از گالری
-app.delete('/api/gallery/:id', (req, res) => {
-  const { id } = req.params;
-  
-  // ابتدا فایل تصویر را پیدا می‌کنیم
-  db.get('SELECT image_path FROM gallery_images WHERE id = ?', [id], (err, row) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    
-    if (!row) {
-      return res.status(404).json({ error: 'تصویر مورد نظر یافت نشد' });
-    }
-    
-    // حذف رکورد از دیتابیس
-    db.run('DELETE FROM gallery_images WHERE id = ?', [id], function(err) {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      
-      if (this.changes === 0) {
-        return res.status(404).json({ error: 'تصویر مورد نظر یافت نشد' });
-      }
-      
-      // حذف فایل فیزیکی تصویر (اختیاری)
-      const filePath = path.join(__dirname, row.image_path.replace('/uploads/', 'uploads/'));
-      try {
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      } catch (error) {
-        console.error('Error deleting image file:', error);
-      }
-      
-      res.json({ message: 'تصویر با موفقیت حذف شد' });
-    });
-  });
-});
-
-// بروزرسانی اطلاعات تصویر
-app.put('/api/gallery/:id', (req, res) => {
-  const { id } = req.params;
-  const { title, description, category } = req.body;
-  
-  if (!title) {
-    return res.status(400).json({ error: 'عنوان تصویر الزامی است' });
-  }
-  
-  const sql = `UPDATE gallery_images SET title = ?, description = ?, category = ? WHERE id = ?`;
-  db.run(sql, [title, description, category, id], function(err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    
-    if (this.changes === 0) {
-      return res.status(404).json({ error: 'تصویر مورد نظر یافت نشد' });
-    }
-    
-    db.get('SELECT * FROM gallery_images WHERE id = ?', [id], (err, row) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      res.json(row);
-    });
-  });
 });
 
 // API Routes برای محصولات
@@ -505,38 +248,11 @@ app.delete('/api/products/:id', (req, res) => {
   });
 });
 
-// مسیر API برای دریافت تصاویر نمونه محصولات
-app.get('/api/product-images', (req, res) => {
-  const sql = 'SELECT * FROM product_images ORDER BY created_at DESC';
-  db.all(sql, [], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    res.json(rows);
-  });
-});
-
-// مسیر API برای دریافت تصاویر نمونه محصولات یک سفارش
-app.get('/api/orders/:id/product-images', (req, res) => {
-  const { id } = req.params;
-  const sql = 'SELECT * FROM product_images WHERE order_id = ? ORDER BY created_at DESC';
-  db.all(sql, [id], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    res.json(rows);
-  });
-});
-
 // API Routes برای سفارش‌ها
-app.get('/api/orders', authenticate, (req, res) => {
+app.get('/api/orders', (req, res) => {
   db.all('SELECT * FROM orders ORDER BY created_at DESC', [], (err, rows) => {
     if (err) {
-      return res.status(500).json({ 
-        success: false,
-        message: err.message,
-        data: null
-      });
+      return res.status(500).json({ error: err.message });
     }
     
     // Parse the items JSON string for each order
@@ -545,59 +261,11 @@ app.get('/api/orders', authenticate, (req, res) => {
       items: JSON.parse(order.items)
     }));
     
-    res.json({
-      success: true,
-      message: `${orders.length} سفارش یافت شد`,
-      data: orders
-    });
+    res.json(orders);
   });
 });
 
-// مسیر API برای دریافت یک سفارش با شناسه خاص
-app.get('/api/orders/:id', authenticate, (req, res) => {
-  const { id } = req.params;
-  
-  db.get('SELECT * FROM orders WHERE id = ?', [id], (err, row) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    
-    if (!row) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'سفارش مورد نظر یافت نشد'
-      });
-    }
-    
-    // Parse the items JSON string
-    const order = {
-      ...row,
-      items: JSON.parse(row.items)
-    };
-    
-    // دریافت تصاویر نمونه محصولات مرتبط با این سفارش
-    db.all('SELECT * FROM product_images WHERE order_id = ? ORDER BY created_at DESC', [id], (err, images) => {
-      if (err) {
-        // اگر خطایی در دریافت تصاویر وجود داشت، سفارش بدون تصاویر برگردانده می‌شود
-        console.error('Error getting product images:', err);
-        return res.json({
-          success: true,
-          message: 'سفارش با موفقیت دریافت شد، اما خطایی در دریافت تصاویر وجود داشت',
-          data: order
-        });
-      }
-      
-      order.productImages = images;
-      return res.json({
-        success: true,
-        message: 'سفارش با موفقیت دریافت شد',
-        data: order
-      });
-    });
-  });
-});
-
-app.post('/api/orders', upload.array('productImage', 10), (req, res) => {
+app.post('/api/orders', (req, res) => {
   const { customer, items, total } = req.body;
   
   if (!customer || !items || !total) {
@@ -612,64 +280,20 @@ app.post('/api/orders', upload.array('productImage', 10), (req, res) => {
       return res.status(500).json({ error: err.message });
     }
     
-    const orderId = this.lastID;
-    
-    // ذخیره تصاویر نمونه محصولات
-    const productImagesCount = parseInt(req.body.productImagesCount || '0', 10);
-    const productImagePromises = [];
-    
-    for (let i = 0; i < productImagesCount; i++) {
-      if (req.files && req.files[i]) {
-        const file = req.files[i];
-        const title = req.body[`productImageTitle_${i}`] || '';
-        const description = req.body[`productImageDescription_${i}`] || '';
-        const category = req.body[`productImageCategory_${i}`] || '';
-        const imagePath = `/uploads/${file.filename}`;
-        
-        const insertImagePromise = new Promise((resolve, reject) => {
-          const imageSql = `INSERT INTO product_images (order_id, title, description, category, image_path) VALUES (?, ?, ?, ?, ?)`;
-          db.run(imageSql, [orderId, title, description, category, imagePath], function(err) {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(this.lastID);
-            }
-          });
-        });
-        
-        productImagePromises.push(insertImagePromise);
-      }
-    }
-    
     // Get the newly created order
-    Promise.all(productImagePromises)
-      .then(() => {
-        db.get('SELECT * FROM orders WHERE id = ?', [orderId], (err, row) => {
-          if (err) {
-            return res.status(500).json({ error: err.message });
-          }
-          
-          // Parse the items JSON string
-          const order = {
-            ...row,
-            items: JSON.parse(row.items)
-          };
-          
-          // تصاویر نمونه محصولات را نیز دریافت کنید
-          db.all('SELECT * FROM product_images WHERE order_id = ?', [orderId], (err, images) => {
-            if (err) {
-              return res.status(500).json({ error: err.message });
-            }
-            
-            order.productImages = images;
-            res.status(201).json(order);
-          });
-        });
-      })
-      .catch(error => {
-        console.error('Error saving product images:', error);
-        res.status(201).json({ id: orderId, message: 'Order created but had errors saving images' });
-      });
+    db.get('SELECT * FROM orders WHERE id = ?', [this.lastID], (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      // Parse the items JSON string
+      const order = {
+        ...row,
+        items: JSON.parse(row.items)
+      };
+      
+      res.status(201).json(order);
+    });
   });
 });
 
@@ -803,45 +427,6 @@ app.delete('/api/categories/:id', (req, res) => {
       }
       
       res.status(200).json({ message: 'دسته‌بندی با موفقیت حذف شد' });
-    });
-  });
-});
-
-// مسیر API برای حذف تصویر نمونه محصول
-app.delete('/api/product-images/:id', (req, res) => {
-  const { id } = req.params;
-  
-  // ابتدا فایل تصویر را پیدا می‌کنیم
-  db.get('SELECT image_path FROM product_images WHERE id = ?', [id], (err, row) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    
-    if (!row) {
-      return res.status(404).json({ error: 'تصویر مورد نظر یافت نشد' });
-    }
-    
-    // حذف رکورد از دیتابیس
-    db.run('DELETE FROM product_images WHERE id = ?', [id], function(err) {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      
-      if (this.changes === 0) {
-        return res.status(404).json({ error: 'تصویر مورد نظر یافت نشد' });
-      }
-      
-      // حذف فایل فیزیکی تصویر (اختیاری)
-      const filePath = path.join(__dirname, row.image_path.replace('/uploads/', 'uploads/'));
-      try {
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      } catch (error) {
-        console.error('Error deleting image file:', error);
-      }
-      
-      res.json({ message: 'تصویر با موفقیت حذف شد' });
     });
   });
 });

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, CheckCircle, Shield, Zap, Sparkles, Layout, Code, Server, Image } from 'lucide-react';
+import { ArrowRight, CheckCircle, Shield, Zap, Sparkles, Layout, Code, Server } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -17,9 +17,6 @@ export default function Home() {
             <nav className="hidden md:flex space-x-8">
               <Link href="/" className="nav-link">
                 خانه
-              </Link>
-              <Link href="/gallery" className="nav-link">
-                گالری تصاویر
               </Link>
               <Link href="/order" className="nav-link">
                 ثبت سفارش

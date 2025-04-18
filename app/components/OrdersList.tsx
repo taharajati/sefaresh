@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { getOrders, updateOrderStatus, getOrderById } from '../lib/api';
+import { useState, useEffect } from 'react';
+import { getOrders, updateOrderStatus } from '../lib/api';
 import { Eye, Download, Search, Filter, RefreshCw } from 'lucide-react';
 
 interface Order {
@@ -148,8 +148,6 @@ export default function OrdersList({ token }: OrdersListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
-  const [editingStatus, setEditingStatus] = useState<string | null>(null);
-  const [isModalLoading, setIsModalLoading] = useState(false);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -409,40 +407,6 @@ export default function OrdersList({ token }: OrdersListProps) {
     }
   };
 
-  // تابع نمایش جزئیات سفارش با استفاده از API
-  const viewOrderDetails = async (orderId: string) => {
-    setIsModalLoading(true);
-    
-    try {
-      // ابتدا سعی میکنیم از API سفارش را دریافت کنیم
-      if (token) {
-        const response = await getOrderById(orderId, token);
-        if (response.success && response.data) {
-          setViewingOrder(response.data);
-          setIsModalLoading(false);
-          return;
-        }
-      }
-      
-      // اگر به API دسترسی نداشتیم، از لیست فعلی سفارش‌ها استفاده می‌کنیم
-      const order = orders.find(o => o.id === orderId);
-      if (order) {
-        setViewingOrder(order);
-      } else {
-        console.error(`Order ${orderId} not found in the current list`);
-      }
-    } catch (error) {
-      console.error(`Error getting order details for ${orderId}:`, error);
-      // در صورت خطا، از لیست فعلی سفارش‌ها استفاده می‌کنیم
-      const order = orders.find(o => o.id === orderId);
-      if (order) {
-        setViewingOrder(order);
-      }
-    } finally {
-      setIsModalLoading(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -459,270 +423,259 @@ export default function OrdersList({ token }: OrdersListProps) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
         <div className="relative bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto p-6">
-          {isModalLoading ? (
-            <div className="text-center py-12">
-              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-violet-600 border-r-transparent align-[-0.125em]" role="status">
-                <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">در حال بارگذاری...</span>
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xl font-bold text-gray-900">جزئیات سفارش #{viewingOrder.id}</h3>
+            <button 
+              onClick={() => setViewingOrder(null)}
+              className="p-1 rounded-full hover:bg-gray-100"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div className="mb-4 flex justify-between">
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(viewingOrder.status)}`}>
+              {getStatusText(viewingOrder.status)}
+            </span>
+            <p className="text-sm text-gray-500">{new Date(viewingOrder.createdAt).toLocaleString('fa-IR')}</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="space-y-3">
+              <h4 className="font-medium text-gray-900 border-b pb-2">اطلاعات مشتری</h4>
+              {viewingOrder.storeName && (
+                <div className="space-y-1">
+                  <span className="font-medium block text-gray-700">نام فروشگاه:</span>
+                  <span className="text-gray-800">{viewingOrder.storeName}</span>
+                </div>
+              )}
+              {viewingOrder.customerName && (
+                <div className="space-y-1">
+                  <span className="font-medium block text-gray-700">نام مشتری:</span>
+                  <span className="text-gray-800">{viewingOrder.customerName}</span>
+                </div>
+              )}
+              <div className="space-y-1">
+                <span className="font-medium block text-gray-700">شماره تماس:</span>
+                <span className="text-gray-800 dir-ltr">{viewingOrder.phoneNumber}</span>
               </div>
-              <p className="mt-3 text-gray-600">در حال بارگذاری جزئیات سفارش...</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-bold text-gray-900">جزئیات سفارش #{viewingOrder.id}</h3>
-                <button 
-                  onClick={() => setViewingOrder(null)}
-                  className="p-1 rounded-full hover:bg-gray-100"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="mb-4 flex justify-between">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(viewingOrder.status)}`}>
-                  {getStatusText(viewingOrder.status)}
+              {viewingOrder.whatsapp && (
+                <div className="space-y-1">
+                  <span className="font-medium block text-gray-700">واتساپ:</span>
+                  <span className="text-gray-800 dir-ltr">{viewingOrder.whatsapp}</span>
+                </div>
+              )}
+              {viewingOrder.telegram && (
+                <div className="space-y-1">
+                  <span className="font-medium block text-gray-700">تلگرام:</span>
+                  <span className="text-gray-800 dir-ltr">{viewingOrder.telegram}</span>
+                </div>
+              )}
+              {viewingOrder.businessType && (
+                <div className="space-y-1">
+                  <span className="font-medium block text-gray-700">نوع کسب و کار:</span>
+                  <span className="text-gray-800">{viewingOrder.businessType}</span>
+                </div>
+              )}
+              <div className="space-y-1">
+                <span className="font-medium block text-gray-700">آدرس:</span>
+                <span className="text-gray-800">
+                  {viewingOrder.province && viewingOrder.city 
+                    ? `${viewingOrder.province}، ${viewingOrder.city}، ${viewingOrder.address}` 
+                    : viewingOrder.address}
                 </span>
-                <p className="text-sm text-gray-500">{new Date(viewingOrder.createdAt).toLocaleString('fa-IR')}</p>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="space-y-3">
-                  <h4 className="font-medium text-gray-900 border-b pb-2">اطلاعات مشتری</h4>
-                  {viewingOrder.storeName && (
-                    <div className="space-y-1">
-                      <span className="font-medium block text-gray-700">نام فروشگاه:</span>
-                      <span className="text-gray-800">{viewingOrder.storeName}</span>
-                    </div>
-                  )}
-                  {viewingOrder.customerName && (
-                    <div className="space-y-1">
-                      <span className="font-medium block text-gray-700">نام مشتری:</span>
-                      <span className="text-gray-800">{viewingOrder.customerName}</span>
-                    </div>
-                  )}
-                  <div className="space-y-1">
-                    <span className="font-medium block text-gray-700">شماره تماس:</span>
-                    <span className="text-gray-800 dir-ltr">{viewingOrder.phoneNumber}</span>
-                  </div>
-                  {viewingOrder.whatsapp && (
-                    <div className="space-y-1">
-                      <span className="font-medium block text-gray-700">واتساپ:</span>
-                      <span className="text-gray-800 dir-ltr">{viewingOrder.whatsapp}</span>
-                    </div>
-                  )}
-                  {viewingOrder.telegram && (
-                    <div className="space-y-1">
-                      <span className="font-medium block text-gray-700">تلگرام:</span>
-                      <span className="text-gray-800 dir-ltr">{viewingOrder.telegram}</span>
-                    </div>
-                  )}
-                  {viewingOrder.businessType && (
-                    <div className="space-y-1">
-                      <span className="font-medium block text-gray-700">نوع کسب و کار:</span>
-                      <span className="text-gray-800">{viewingOrder.businessType}</span>
-                    </div>
-                  )}
-                  <div className="space-y-1">
-                    <span className="font-medium block text-gray-700">آدرس:</span>
-                    <span className="text-gray-800">
-                      {viewingOrder.province && viewingOrder.city 
-                        ? `${viewingOrder.province}، ${viewingOrder.city}، ${viewingOrder.address}` 
-                        : viewingOrder.address}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <h4 className="font-medium text-gray-900 border-b pb-2">اطلاعات سفارش</h4>
-                  <div className="space-y-1">
-                    <span className="font-medium block text-gray-700">شماره سفارش:</span>
-                    <span className="text-gray-800">{viewingOrder.id}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="font-medium block text-gray-700">تاریخ ثبت:</span>
-                    <span className="text-gray-800">{new Date(viewingOrder.createdAt).toLocaleString('fa-IR')}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="font-medium block text-gray-700">پلن انتخابی:</span>
-                    <span className="text-gray-800">{getPlanDisplayName(viewingOrder.pricingPlan)}</span>
-                  </div>
-                  {viewingOrder.additionalModules && viewingOrder.additionalModules.length > 0 && (
-                    <div className="space-y-1">
-                      <span className="font-medium block text-gray-700">ماژول‌های اضافی:</span>
-                      <span className="text-gray-800">
-                        {getModulesDisplay(viewingOrder.additionalModules)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="space-y-1">
-                    <span className="font-medium block text-gray-700">تعداد اقلام:</span>
-                    <span className="text-gray-800">{viewingOrder.items?.length || 0} مورد</span>
-                  </div>
-                </div>
+            </div>
+            
+            <div className="space-y-3">
+              <h4 className="font-medium text-gray-900 border-b pb-2">اطلاعات سفارش</h4>
+              <div className="space-y-1">
+                <span className="font-medium block text-gray-700">شماره سفارش:</span>
+                <span className="text-gray-800">{viewingOrder.id}</span>
               </div>
+              <div className="space-y-1">
+                <span className="font-medium block text-gray-700">تاریخ ثبت:</span>
+                <span className="text-gray-800">{new Date(viewingOrder.createdAt).toLocaleString('fa-IR')}</span>
+              </div>
+              <div className="space-y-1">
+                <span className="font-medium block text-gray-700">پلن انتخابی:</span>
+                <span className="text-gray-800">{getPlanDisplayName(viewingOrder.pricingPlan)}</span>
+              </div>
+              {viewingOrder.additionalModules && viewingOrder.additionalModules.length > 0 && (
+                <div className="space-y-1">
+                  <span className="font-medium block text-gray-700">ماژول‌های اضافی:</span>
+                  <span className="text-gray-800">
+                    {getModulesDisplay(viewingOrder.additionalModules)}
+                  </span>
+                </div>
+              )}
+              <div className="space-y-1">
+                <span className="font-medium block text-gray-700">تعداد اقلام:</span>
+                <span className="text-gray-800">{viewingOrder.items?.length || 0} مورد</span>
+              </div>
+            </div>
+          </div>
 
-              {/* Branding Information */}
-              {(viewingOrder.favoriteColor || viewingOrder.preferredFont || viewingOrder.brandSlogan || viewingOrder.categories) && (
-                <div className="mb-6">
-                  <h4 className="font-medium text-gray-900 border-b pb-2 mb-3">اطلاعات برندینگ</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      {viewingOrder.favoriteColor && (
-                        <div className="space-y-1">
-                          <span className="font-medium block text-gray-700">رنگ مورد علاقه:</span>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="h-6 w-6 rounded-full border border-gray-300" 
-                              style={{ backgroundColor: viewingOrder.favoriteColor }}
-                            ></div>
-                            <span className="text-gray-800">{viewingOrder.favoriteColor}</span>
-                          </div>
-                        </div>
-                      )}
-                      {viewingOrder.preferredFont && (
-                        <div className="space-y-1">
-                          <span className="font-medium block text-gray-700">فونت ترجیحی:</span>
-                          <span className="text-gray-800">{viewingOrder.preferredFont}</span>
-                        </div>
-                      )}
-                      {viewingOrder.brandSlogan && (
-                        <div className="space-y-1">
-                          <span className="font-medium block text-gray-700">شعار برند:</span>
-                          <span className="text-gray-800">{viewingOrder.brandSlogan}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-3">
-                      {viewingOrder.categories && (
-                        <div className="space-y-1">
-                          <span className="font-medium block text-gray-700">دسته‌بندی‌ها:</span>
-                          <span className="text-gray-800">{viewingOrder.categories}</span>
-                        </div>
-                      )}
-                      {viewingOrder.estimatedProducts && (
-                        <div className="space-y-1">
-                          <span className="font-medium block text-gray-700">تعداد تقریبی محصولات:</span>
-                          <span className="text-gray-800">{viewingOrder.estimatedProducts}</span>
-                        </div>
-                      )}
-                      {viewingOrder.productDisplayType && (
-                        <div className="space-y-1">
-                          <span className="font-medium block text-gray-700">نحوه نمایش محصولات:</span>
-                          <span className="text-gray-800">{viewingOrder.productDisplayType}</span>
-                        </div>
-                      )}
-                      {viewingOrder.specialFeatures && (
-                        <div className="space-y-1">
-                          <span className="font-medium block text-gray-700">ویژگی‌های خاص:</span>
-                          <span className="text-gray-800">{viewingOrder.specialFeatures}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Additional Notes */}
-              {viewingOrder.additionalNotes && (
-                <div className="mb-6">
-                  <h4 className="font-medium text-gray-900 border-b pb-2 mb-3">توضیحات اضافی</h4>
-                  <div className="text-gray-800 whitespace-pre-line">{viewingOrder.additionalNotes}</div>
-                </div>
-              )}
-              
-              {/* Product Images */}
-              {viewingOrder.productImages && viewingOrder.productImages.length > 0 && (
-                <div className="mb-6">
-                  <h4 className="font-medium text-gray-900 border-b pb-2 mb-3">تصاویر محصولات</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {viewingOrder.productImages.map((image, index) => (
-                      <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
-                        <img 
-                          src={image} 
-                          alt={`تصویر محصول ${index + 1}`} 
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
+          {/* Branding Information */}
+          {(viewingOrder.favoriteColor || viewingOrder.preferredFont || viewingOrder.brandSlogan || viewingOrder.categories) && (
+            <div className="mb-6">
+              <h4 className="font-medium text-gray-900 border-b pb-2 mb-3">اطلاعات برندینگ</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  {viewingOrder.favoriteColor && (
+                    <div className="space-y-1">
+                      <span className="font-medium block text-gray-700">رنگ مورد علاقه:</span>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="h-6 w-6 rounded-full border border-gray-300" 
+                          style={{ backgroundColor: viewingOrder.favoriteColor }}
+                        ></div>
+                        <span className="text-gray-800">{viewingOrder.favoriteColor}</span>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
+                  {viewingOrder.preferredFont && (
+                    <div className="space-y-1">
+                      <span className="font-medium block text-gray-700">فونت ترجیحی:</span>
+                      <span className="text-gray-800">{viewingOrder.preferredFont}</span>
+                    </div>
+                  )}
+                  {viewingOrder.brandSlogan && (
+                    <div className="space-y-1">
+                      <span className="font-medium block text-gray-700">شعار برند:</span>
+                      <span className="text-gray-800">{viewingOrder.brandSlogan}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-              
-              <div className="border rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">محصول</th>
-                      <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">تعداد</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">قیمت واحد</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">قیمت کل</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {viewingOrder.items && viewingOrder.items.map((item, index) => (
-                      <tr key={index}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">{item.quantity}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-left">{item.price.toLocaleString('fa-IR')} تومان</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-left">{(item.price * item.quantity).toLocaleString('fa-IR')} تومان</td>
-                      </tr>
-                    ))}
-                    <tr className="bg-gray-50">
-                      <td colSpan={3} className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-left">جمع کل:</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-left">{viewingOrder.total.toLocaleString('fa-IR')} تومان</td>
-                    </tr>
-                  </tbody>
-                </table>
+                <div className="space-y-3">
+                  {viewingOrder.categories && (
+                    <div className="space-y-1">
+                      <span className="font-medium block text-gray-700">دسته‌بندی‌ها:</span>
+                      <span className="text-gray-800">{viewingOrder.categories}</span>
+                    </div>
+                  )}
+                  {viewingOrder.estimatedProducts && (
+                    <div className="space-y-1">
+                      <span className="font-medium block text-gray-700">تعداد تقریبی محصولات:</span>
+                      <span className="text-gray-800">{viewingOrder.estimatedProducts}</span>
+                    </div>
+                  )}
+                  {viewingOrder.productDisplayType && (
+                    <div className="space-y-1">
+                      <span className="font-medium block text-gray-700">نحوه نمایش محصولات:</span>
+                      <span className="text-gray-800">{viewingOrder.productDisplayType}</span>
+                    </div>
+                  )}
+                  {viewingOrder.specialFeatures && (
+                    <div className="space-y-1">
+                      <span className="font-medium block text-gray-700">ویژگی‌های خاص:</span>
+                      <span className="text-gray-800">{viewingOrder.specialFeatures}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              
-              <div className="mt-6 flex justify-end gap-3">
-                <button 
-                  onClick={() => setViewingOrder(null)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg shadow-sm hover:bg-gray-50"
-                >
-                  بستن
-                </button>
-                
-                {viewingOrder.status === 'pending' && (
-                  <button
-                    onClick={() => {
-                      handleStatusUpdate(viewingOrder.id, 'confirmed');
-                      setViewingOrder(null);
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700"
-                  >
-                    تایید سفارش
-                  </button>
-                )}
-                
-                {viewingOrder.status === 'confirmed' && (
-                  <button
-                    onClick={() => {
-                      handleStatusUpdate(viewingOrder.id, 'delivered');
-                      setViewingOrder(null);
-                    }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg shadow-sm hover:bg-green-700"
-                  >
-                    تحویل شد
-                  </button>
-                )}
-                
-                {(viewingOrder.status === 'pending' || viewingOrder.status === 'confirmed') && (
-                  <button
-                    onClick={() => {
-                      handleStatusUpdate(viewingOrder.id, 'cancelled');
-                      setViewingOrder(null);
-                    }}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700"
-                  >
-                    لغو سفارش
-                  </button>
-                )}
-              </div>
-            </>
+            </div>
           )}
+          
+          {/* Additional Notes */}
+          {viewingOrder.additionalNotes && (
+            <div className="mb-6">
+              <h4 className="font-medium text-gray-900 border-b pb-2 mb-3">توضیحات اضافی</h4>
+              <div className="text-gray-800 whitespace-pre-line">{viewingOrder.additionalNotes}</div>
+            </div>
+          )}
+          
+          {/* Product Images */}
+          {viewingOrder.productImages && viewingOrder.productImages.length > 0 && (
+            <div className="mb-6">
+              <h4 className="font-medium text-gray-900 border-b pb-2 mb-3">تصاویر محصولات</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {viewingOrder.productImages.map((image, index) => (
+                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
+                    <img 
+                      src={image} 
+                      alt={`تصویر محصول ${index + 1}`} 
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <div className="border rounded-lg overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">محصول</th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">تعداد</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">قیمت واحد</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">قیمت کل</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {viewingOrder.items && viewingOrder.items.map((item, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">{item.quantity}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-left">{item.price.toLocaleString('fa-IR')} تومان</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-left">{(item.price * item.quantity).toLocaleString('fa-IR')} تومان</td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-50">
+                  <td colSpan={3} className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-left">جمع کل:</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-left">{viewingOrder.total.toLocaleString('fa-IR')} تومان</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="mt-6 flex justify-end gap-3">
+            <button 
+              onClick={() => setViewingOrder(null)}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg shadow-sm hover:bg-gray-50"
+            >
+              بستن
+            </button>
+            
+            {viewingOrder.status === 'pending' && (
+              <button
+                onClick={() => {
+                  handleStatusUpdate(viewingOrder.id, 'confirmed');
+                  setViewingOrder(null);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700"
+              >
+                تایید سفارش
+              </button>
+            )}
+            
+            {viewingOrder.status === 'confirmed' && (
+              <button
+                onClick={() => {
+                  handleStatusUpdate(viewingOrder.id, 'delivered');
+                  setViewingOrder(null);
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg shadow-sm hover:bg-green-700"
+              >
+                تحویل شد
+              </button>
+            )}
+            
+            {(viewingOrder.status === 'pending' || viewingOrder.status === 'confirmed') && (
+              <button
+                onClick={() => {
+                  handleStatusUpdate(viewingOrder.id, 'cancelled');
+                  setViewingOrder(null);
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700"
+              >
+                لغو سفارش
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -806,11 +759,7 @@ export default function OrdersList({ token }: OrdersListProps) {
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {filteredOrders.map((order) => (
-                <tr 
-                  key={order.id} 
-                  className="bg-white border-b hover:bg-gray-50 cursor-pointer"
-                  onClick={() => viewOrderDetails(order.id)}
-                >
+                <tr key={order.id} className="hover:bg-gray-50">
                   <td className="whitespace-nowrap py-4 pl-3 pr-4 text-sm font-medium text-gray-900 sm:pr-6">
                     {order.id}
                   </td>
@@ -829,60 +778,13 @@ export default function OrdersList({ token }: OrdersListProps) {
                     </span>
                   </td>
                   <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                    <div className="flex items-center justify-end space-x-2 space-x-reverse">
-                      <button
-                        className="p-1 text-gray-500 hover:text-violet-600 hover:bg-violet-50 rounded-full"
-                        title="مشاهده جزئیات"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          viewOrderDetails(order.id);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      {(order.status === 'pending') && (
-                        <button
-                          className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full"
-                          title="تایید سفارش"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusUpdate(order.id, 'confirmed');
-                          }}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </button>
-                      )}
-                      {(order.status === 'confirmed') && (
-                        <button
-                          className="p-1 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-full"
-                          title="تحویل شد"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusUpdate(order.id, 'delivered');
-                          }}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </button>
-                      )}
-                      {(order.status === 'pending' || order.status === 'confirmed') && (
-                        <button
-                          className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-full"
-                          title="لغو سفارش"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusUpdate(order.id, 'cancelled');
-                          }}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => setViewingOrder(order)}
+                      className="p-1 text-gray-500 hover:text-violet-600 hover:bg-violet-50 rounded-full"
+                      title="مشاهده جزئیات"
+                    >
+                      <Eye className="h-5 w-5" />
+                    </button>
                   </td>
                 </tr>
               ))}
