@@ -419,6 +419,50 @@ app.get('/api/orders', (req, res) => {
   });
 });
 
+// مسیر API برای دریافت یک سفارش با شناسه خاص
+app.get('/api/orders/:id', (req, res) => {
+  const { id } = req.params;
+  
+  db.get('SELECT * FROM orders WHERE id = ?', [id], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (!row) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'سفارش مورد نظر یافت نشد'
+      });
+    }
+    
+    // Parse the items JSON string
+    const order = {
+      ...row,
+      items: JSON.parse(row.items)
+    };
+    
+    // دریافت تصاویر نمونه محصولات مرتبط با این سفارش
+    db.all('SELECT * FROM product_images WHERE order_id = ? ORDER BY created_at DESC', [id], (err, images) => {
+      if (err) {
+        // اگر خطایی در دریافت تصاویر وجود داشت، سفارش بدون تصاویر برگردانده می‌شود
+        console.error('Error getting product images:', err);
+        return res.json({
+          success: true,
+          message: 'سفارش با موفقیت دریافت شد، اما خطایی در دریافت تصاویر وجود داشت',
+          data: order
+        });
+      }
+      
+      order.productImages = images;
+      return res.json({
+        success: true,
+        message: 'سفارش با موفقیت دریافت شد',
+        data: order
+      });
+    });
+  });
+});
+
 app.post('/api/orders', upload.array('productImage', 10), (req, res) => {
   const { customer, items, total } = req.body;
   

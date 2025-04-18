@@ -235,6 +235,94 @@ export const getOrders = async (token: string): Promise<ApiResponse> => {
   }
 };
 
+// دریافت اطلاعات یک سفارش با شناسه خاص
+export const getOrderById = async (id: string, token: string): Promise<ApiResponse> => {
+  // اگر هنوز وضعیت سرور را چک نکردیم
+  if (!hasCheckedServer) {
+    await checkServerConnection();
+  }
+  
+  // اگر سرور در دسترس نیست، مستقیم از localStorage استفاده کنیم
+  if (!isServerAvailable) {
+    console.log('Server is not available, using localStorage directly for order');
+    return getOrderByIdFromLocalStorage(id);
+  }
+  
+  try {
+    console.log(`Fetching order ${id} from API with token:`, token);
+    
+    const response = await axios.get(`${API_URL}/orders/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      },
+      timeout: 5000 // 5 second timeout
+    });
+    
+    logAPIAction('getOrderById', response.data, response.data.success);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching order ${id} from API:`, error);
+    
+    // اگر به API دسترسی نداریم، از localStorage استفاده کن
+    return getOrderByIdFromLocalStorage(id);
+  }
+};
+
+// دریافت یک سفارش از localStorage با شناسه خاص
+function getOrderByIdFromLocalStorage(id: string): ApiResponse {
+  try {
+    console.log(`Getting order ${id} from localStorage`);
+    const ordersFromStorage = localStorage.getItem('orders');
+    
+    if (!ordersFromStorage) {
+      console.log('No orders found in localStorage');
+      return { 
+        success: false, 
+        message: 'سفارش مورد نظر یافت نشد', 
+        data: null 
+      };
+    }
+    
+    const parsedOrders = JSON.parse(ordersFromStorage);
+    if (!Array.isArray(parsedOrders)) {
+      console.warn('Orders in localStorage is not an array');
+      return { 
+        success: false, 
+        message: 'فرمت داده‌های ذخیره شده نامعتبر است', 
+        data: null 
+      };
+    }
+    
+    const order = parsedOrders.find((order: any) => order.id === id);
+    
+    if (!order) {
+      console.log(`Order ${id} not found in localStorage`);
+      return { 
+        success: false, 
+        message: 'سفارش مورد نظر یافت نشد', 
+        data: null 
+      };
+    }
+    
+    console.log(`Found order ${id} in localStorage`);
+    return { 
+      success: true, 
+      message: 'سفارش مورد نظر یافت شد', 
+      data: order 
+    };
+  } catch (error) {
+    console.error(`Error getting order ${id} from localStorage:`, error);
+    return { 
+      success: false, 
+      message: 'خطا در دریافت سفارش از حافظه محلی', 
+      data: null 
+    };
+  }
+}
+
 // دریافت سفارش‌ها از localStorage
 function getOrdersFromLocalStorage(): ApiResponse {
   try {
