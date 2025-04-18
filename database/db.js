@@ -47,12 +47,14 @@ function initializeDatabase() {
     // جدول تصاویر
     db.run(`CREATE TABLE IF NOT EXISTS images (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER,
       original_name TEXT,
       filename TEXT NOT NULL,
       filepath TEXT NOT NULL,
       size INTEGER,
       mimetype TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders (id)
     )`);
   });
 }
@@ -176,11 +178,11 @@ const dbUtils = {
   // ذخیره اطلاعات تصویر
   saveImage: (imageData) => {
     return new Promise((resolve, reject) => {
-      const { original_name, filename, filepath, size, mimetype } = imageData;
+      const { order_id, original_name, filename, file_path, file_type } = imageData;
       
       db.run(
-        'INSERT INTO images (original_name, filename, filepath, size, mimetype) VALUES (?, ?, ?, ?, ?)',
-        [original_name, filename, filepath, size, mimetype],
+        'INSERT INTO images (order_id, original_name, filename, filepath, mimetype) VALUES (?, ?, ?, ?, ?)',
+        [order_id, original_name, filename, file_path, file_type],
         function(err) {
           if (err) {
             console.error('Error saving image:', err.message);
@@ -215,6 +217,20 @@ const dbUtils = {
       db.all('SELECT * FROM images ORDER BY created_at DESC', (err, rows) => {
         if (err) {
           console.error('Error fetching images:', err.message);
+          reject(err);
+          return;
+        }
+        resolve(rows);
+      });
+    });
+  },
+  
+  // دریافت تصاویر مربوط به یک سفارش
+  getImagesByOrderId: (orderId) => {
+    return new Promise((resolve, reject) => {
+      db.all('SELECT * FROM images WHERE order_id = ? ORDER BY created_at DESC', [orderId], (err, rows) => {
+        if (err) {
+          console.error('Error fetching images for order:', err.message);
           reject(err);
           return;
         }
