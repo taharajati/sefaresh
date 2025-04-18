@@ -154,72 +154,50 @@ export default function OrdersList({ token }: OrdersListProps) {
       setLoading(true);
       
       try {
-        // ابتدا سعی می‌کنیم داده‌ها را از API دریافت کنیم
-        if (token) {
-          const response = await getOrders(token);
-          if (response.success && response.data) {
-            console.log("داده‌های دریافتی از API:", response.data);
-            setOrders(response.data);
-            setLoading(false);
-            return;
-          } else {
-            console.warn("دریافت داده از API ناموفق بود:", response);
-          }
-        }
-        
-        // اگر API در دسترس نبود، از localStorage استفاده می‌کنیم
-        try {
-          const ordersFromStorage = localStorage.getItem('orders');
-          console.log("داده‌های ذخیره شده در localStorage:", ordersFromStorage);
+        // دریافت سفارش‌ها از API متصل به دیتابیس
+        const response = await getOrders(token);
+        if (response.success) {
+          console.log("داده‌های دریافتی از دیتابیس SQLite:", response.data);
           
-          if (ordersFromStorage) {
-            const parsedOrders = JSON.parse(ordersFromStorage);
-            if (Array.isArray(parsedOrders) && parsedOrders.length > 0) {
-              // پردازش داده‌های دریافتی
-              const processedOrders = parsedOrders.map((order: any) => {
-                // اطمینان از وجود همه فیلدهای لازم
-                return {
-                  id: order.id || `ORD-${Math.floor(Math.random() * 10000)}`,
-                  customerName: order.customerName || order.storeName || 'بدون نام',
-                  phoneNumber: order.phoneNumber || 'بدون شماره',
-                  address: order.address || '',
-                  storeName: order.storeName || '',
-                  businessType: order.businessType || '',
-                  province: order.province || '',
-                  city: order.city || '',
-                  whatsapp: order.whatsapp || '',
-                  telegram: order.telegram || '',
-                  pricingPlan: order.pricingPlan || 'standard',
-                  additionalModules: order.additionalModules || [],
-                  items: order.items || [{
-                    name: `سفارش سایت ${order.pricingPlan || 'استاندارد'}`,
-                    quantity: 1,
-                    price: 15000000
-                  }],
-                  total: order.total || 15000000,
-                  status: order.status || 'pending',
-                  createdAt: order.createdAt || new Date().toISOString()
-                };
-              });
-              
-              console.log("داده‌های پردازش شده:", processedOrders);
-              setOrders(processedOrders);
-              setLoading(false);
-              return;
-            }
-          }
-        } catch (storageError) {
-          console.error('خطا در دریافت سفارش‌ها از localStorage:', storageError);
+          // پردازش داده‌های دریافتی
+          const processedOrders = response.data.map((order: any) => {
+            // اطمینان از وجود همه فیلدهای لازم
+            return {
+              id: order.id || `ORD-${Math.floor(Math.random() * 10000)}`,
+              customerName: order.customer_name || 'بدون نام',
+              phoneNumber: order.phoneNumber || 'بدون شماره',
+              address: order.address || '',
+              storeName: order.storeName || '',
+              businessType: order.businessType || '',
+              province: order.province || '',
+              city: order.city || '',
+              whatsapp: order.whatsapp || '',
+              telegram: order.telegram || '',
+              pricingPlan: order.pricingPlan || 'standard',
+              additionalModules: order.additionalModules || [],
+              items: order.items || [{
+                name: `سفارش سایت ${order.pricingPlan || 'استاندارد'}`,
+                quantity: 1,
+                price: order.total || 15000000
+              }],
+              total: order.total || 15000000,
+              status: order.status || 'pending',
+              createdAt: order.created_at || new Date().toISOString()
+            };
+          });
+          
+          console.log("داده‌های پردازش شده:", processedOrders);
+          setOrders(processedOrders);
+        } else {
+          console.error('دریافت سفارش‌ها ناموفق بود:', response.message);
+          setError('خطا در دریافت سفارش‌ها: ' + response.message);
+          setOrders([]); // آرایه خالی در صورت خطا
         }
-        
-        // اگر هیچ داده‌ای دریافت نشد، از داده‌های نمونه استفاده کن
-        console.log("استفاده از داده‌های نمونه");
-        setOrders(mockOrders);
-        setLoading(false);
       } catch (error) {
         console.error('خطا در دریافت سفارش‌ها:', error);
         setError('خطا در دریافت لیست سفارش‌ها');
-        setOrders(mockOrders); // از داده‌های نمونه استفاده کن
+        setOrders([]); // آرایه خالی در صورت خطا
+      } finally {
         setLoading(false);
       }
     };
@@ -231,43 +209,21 @@ export default function OrdersList({ token }: OrdersListProps) {
     setLoading(true);
     
     try {
-      // اگر توکن وجود داشت، از API استفاده کن
-      if (token) {
-        const response = await updateOrderStatus(orderId, newStatus);
-        if (response.success) {
-          setOrders(prev => prev.map(order => 
-            order.id === orderId ? { ...order, status: newStatus } : order
-          ));
-          setLoading(false);
-          return;
-        }
-      }
-      
-      // اگر به API دسترسی نداشتیم، localStorage را به‌روزرسانی کن
-      try {
-        const ordersFromStorage = localStorage.getItem('orders');
-        if (ordersFromStorage) {
-          const parsedOrders = JSON.parse(ordersFromStorage);
-          const updatedOrders = parsedOrders.map((order: Order) => 
-            order.id === orderId ? { ...order, status: newStatus } : order
-          );
-          localStorage.setItem('orders', JSON.stringify(updatedOrders));
-          setOrders(updatedOrders);
-        } else {
-          // اگر در localStorage هم وجود نداشت، از حالت مجازی استفاده کن
-          setOrders(prev => prev.map(order => 
-            order.id === orderId ? { ...order, status: newStatus } : order
-          ));
-        }
-      } catch (storageError) {
-        console.error('خطا در به‌روزرسانی وضعیت سفارش در localStorage:', storageError);
-        // در صورت خطا، فقط state را به‌روزرسانی کن
+      // به‌روزرسانی وضعیت سفارش از طریق API متصل به دیتابیس
+      const response = await updateOrderStatus(orderId, newStatus);
+      if (response.success) {
+        // به‌روزرسانی وضعیت در UI
         setOrders(prev => prev.map(order => 
           order.id === orderId ? { ...order, status: newStatus } : order
         ));
+        alert('وضعیت سفارش با موفقیت به‌روزرسانی شد');
+      } else {
+        console.error('به‌روزرسانی وضعیت سفارش ناموفق بود:', response.message);
+        alert('خطا در به‌روزرسانی وضعیت سفارش: ' + response.message);
       }
     } catch (error) {
       console.error('خطا در به‌روزرسانی وضعیت سفارش:', error);
+      alert('خطا در به‌روزرسانی وضعیت سفارش');
     } finally {
       setLoading(false);
     }
@@ -308,37 +264,47 @@ export default function OrdersList({ token }: OrdersListProps) {
     
     const fetchOrders = async () => {
       try {
-        // اگر توکن وجود داشت، سعی کن از API دریافت کنی
-        if (token) {
-          const response = await getOrders(token);
-          if (response.success && response.data) {
-            setOrders(response.data);
-            setLoading(false);
-            return;
-          }
+        // دریافت مجدد سفارش‌ها از API متصل به دیتابیس
+        const response = await getOrders(token);
+        if (response.success) {
+          console.log("داده‌های به‌روزرسانی شده از دیتابیس:", response.data);
+          
+          // پردازش داده‌های دریافتی
+          const processedOrders = response.data.map((order: any) => {
+            // اطمینان از وجود همه فیلدهای لازم
+            return {
+              id: order.id || `ORD-${Math.floor(Math.random() * 10000)}`,
+              customerName: order.customer_name || 'بدون نام',
+              phoneNumber: order.phoneNumber || 'بدون شماره',
+              address: order.address || '',
+              storeName: order.storeName || '',
+              businessType: order.businessType || '',
+              province: order.province || '',
+              city: order.city || '',
+              whatsapp: order.whatsapp || '',
+              telegram: order.telegram || '',
+              pricingPlan: order.pricingPlan || 'standard',
+              additionalModules: order.additionalModules || [],
+              items: order.items || [{
+                name: `سفارش سایت ${order.pricingPlan || 'استاندارد'}`,
+                quantity: 1,
+                price: order.total || 15000000
+              }],
+              total: order.total || 15000000,
+              status: order.status || 'pending',
+              createdAt: order.created_at || new Date().toISOString()
+            };
+          });
+          
+          setOrders(processedOrders);
+        } else {
+          console.error('دریافت سفارش‌ها ناموفق بود:', response.message);
+          alert('خطا در به‌روزرسانی سفارش‌ها: ' + response.message);
         }
-        
-        // اگر به API دسترسی نداشتیم، از localStorage استفاده کن
-        try {
-          const ordersFromStorage = localStorage.getItem('orders');
-          if (ordersFromStorage) {
-            const parsedOrders = JSON.parse(ordersFromStorage);
-            if (Array.isArray(parsedOrders) && parsedOrders.length > 0) {
-              setOrders(parsedOrders);
-              setLoading(false);
-              return;
-            }
-          }
-        } catch (storageError) {
-          console.error('خطا در دریافت سفارش‌ها از localStorage:', storageError);
-        }
-        
-        // اگر هیچ داده‌ای دریافت نشد، از داده‌های نمونه استفاده کن
-        setOrders(mockOrders);
-        setLoading(false);
       } catch (error) {
-        console.error('خطا در به‌روزرسانی لیست سفارش‌ها:', error);
-        setOrders(mockOrders);
+        console.error('خطا در به‌روزرسانی سفارش‌ها:', error);
+        alert('خطا در به‌روزرسانی سفارش‌ها');
+      } finally {
         setLoading(false);
       }
     };
