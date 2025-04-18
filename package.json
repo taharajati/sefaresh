@@ -6,7 +6,8 @@
     "dev": "set NEXT_DISABLE_DEVFEEDBACK=1 && next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "offline": "set NEXT_PUBLIC_API_URL=none && set NEXT_DISABLE_DEVFEEDBACK=1 && next dev --turbopack"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

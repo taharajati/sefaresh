@@ -105,6 +105,7 @@ const OrderForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{success?: boolean; message?: string} | null>(null);
+  const [productImages, setProductImages] = useState<File[]>([]);
 
   const formik = useFormik<FormValues>({
     initialValues: {
@@ -133,31 +134,53 @@ const OrderForm = () => {
     onSubmit: async (values) => {
       setIsSubmitting(true);
       setSubmitStatus(null);
-      const formData = new FormData();
-
-      // Handle string values
-      Object.entries(values).forEach(([key, value]) => {
-        if (key !== 'logo' && key !== 'productImages' && key !== 'additionalModules') {
-          formData.append(key, value as string);
-        }
-      });
-
-      // Handle arrays
-      formData.append('additionalModules', JSON.stringify(values.additionalModules));
-
-      // Handle file uploads
-      if (values.logo) {
-        formData.append('logo', values.logo);
-      }
-      values.productImages.forEach((file) => {
-        formData.append('productImages', file);
-      });
-
-      console.log('Submitting form with values:', values);
-
+      
       try {
+        // Validate form first
+        await formik.validateForm();
+        
+        if (Object.keys(formik.errors).length > 0) {
+          setIsSubmitting(false);
+          
+          // Scroll to the first error
+          const firstErrorKey = Object.keys(formik.errors)[0];
+          const errorElement = document.getElementById(firstErrorKey);
+          if (errorElement) {
+            errorElement.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center'
+            });
+          }
+          
+          return;
+        }
+        
+        // Create form data
+        const formData = new FormData();
+        
+        // Add all form fields
+        Object.entries(values).forEach(([key, value]) => {
+          if (key === 'additionalModules' && Array.isArray(value)) {
+            formData.append(key, JSON.stringify(value));
+          } else if (key === 'logo' && value) {
+            // Logo is already a File object
+            formData.append(key, value as File);
+          } else if (value !== undefined && value !== null) {
+            formData.append(key, String(value));
+          }
+        });
+        
+        // Add product images if any
+        if (productImages.length > 0) {
+          productImages.forEach((file, index) => {
+            formData.append(`productImage_${index}`, file);
+          });
+        }
+        
+        console.log('Submitting form with data:', values);
+        
+        // Send to API
         const response = await submitOrder(formData);
-        console.log('Form submission response:', response);
         
         if (response.success) {
           // ذخیره سفارش در localStorage
@@ -183,36 +206,21 @@ const OrderForm = () => {
             message: response.message || 'سفارش شما با موفقیت ثبت شد'
           });
           formik.resetForm();
+          setProductImages([]);
           window.scrollTo({top: 0, behavior: 'smooth'});
         } else {
-          // اضافه کردن جزئیات بیشتر خطا
-          let errorMessage = response.message || 'خطا در ارسال سفارش';
-          
-          // اگر جزئیات خطا وجود داشت، آن را به پیام اضافه کنیم
-          if (response.errorDetails) {
-            const details = response.errorDetails;
-            if (details.status) {
-              errorMessage += ` (کد خطا: ${details.status})`;
-            }
-            console.error('خطای دقیق:', response.errorDetails);
-          }
-          
           setSubmitStatus({
             success: false,
-            message: errorMessage
+            message: response.message || 'خطا در ثبت سفارش. لطفاً دوباره تلاش کنید.'
           });
-          
-          // اسکرول به بالای صفحه برای دیدن پیام خطا
           window.scrollTo({top: 0, behavior: 'smooth'});
         }
       } catch (error) {
-        console.error('خطای غیرمنتظره هنگام ارسال فرم:', error);
+        console.error('Error submitting form:', error);
         setSubmitStatus({
           success: false,
-          message: error instanceof Error ? `خطا: ${error.message}` : 'خطای غیرمنتظره در ارسال سفارش'
+          message: error instanceof Error ? error.message : 'خطایی رخ داد. لطفاً دوباره تلاش کنید.'
         });
-        
-        // اسکرول به بالای صفحه برای دیدن پیام خطا
         window.scrollTo({top: 0, behavior: 'smooth'});
       } finally {
         setIsSubmitting(false);
@@ -235,7 +243,7 @@ const OrderForm = () => {
       'image/*': ['.jpeg', '.jpg', '.png'],
     },
     onDrop: (acceptedFiles) => {
-      formik.setFieldValue('productImages', [...formik.values.productImages, ...acceptedFiles]);
+      setProductImages([...productImages, ...acceptedFiles]);
     },
   });
 
