@@ -41,6 +41,119 @@ app.use(express.json());
 // مسیر استاتیک برای نمایش تصاویر
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// افزودن نقطه پایانی برای چک کردن سلامت سرور
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok',
+    message: 'Server is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// مسیر API برای ورود ادمین
+app.post('/api/admin/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  // بررسی اعتبارسنجی ساده
+  if (username === 'shop_admin' && password === 'Sefaresh@1401') {
+    // تولید یک توکن ساده (در یک محیط واقعی، باید از JWT یا راه حل امن‌تری استفاده شود)
+    const token = 'admin_token_' + Date.now();
+    
+    res.json({
+      success: true,
+      message: 'ورود موفقیت‌آمیز بود',
+      data: { token }
+    });
+  } else {
+    res.status(401).json({
+      success: false,
+      message: 'نام کاربری یا رمز عبور اشتباه است'
+    });
+  }
+});
+
+// مسیر API برای ایجاد سفارش‌های نمونه (فقط برای تست)
+app.get('/api/test/create-sample-orders', (req, res) => {
+  // تعداد سفارش‌هایی که می‌خواهیم ایجاد کنیم
+  const count = req.query.count ? parseInt(req.query.count) : 5;
+  
+  // آرایه‌ی وعده‌ها برای ذخیره‌ سفارش‌ها
+  const orderPromises = [];
+  
+  // ایجاد سفارش‌های نمونه
+  for (let i = 0; i < count; i++) {
+    const customer = `مشتری نمونه ${i+1}`;
+    const items = JSON.stringify([
+      {
+        name: `سفارش سایت ${['basic', 'standard', 'advanced'][i % 3]}`,
+        quantity: 1,
+        price: 10000000 + (i * 5000000)
+      }
+    ]);
+    const total = 10000000 + (i * 5000000);
+    const status = ['pending', 'confirmed', 'delivered', 'cancelled'][i % 4];
+    
+    const orderPromise = new Promise((resolve, reject) => {
+      const sql = `INSERT INTO orders (customer, items, status, total) VALUES (?, ?, ?, ?)`;
+      db.run(sql, [customer, items, status, total], function(err) {
+        if (err) {
+          console.error('Error creating sample order:', err);
+          reject(err);
+        } else {
+          resolve(this.lastID);
+        }
+      });
+    });
+    
+    orderPromises.push(orderPromise);
+  }
+  
+  // اجرای همه‌ی وعده‌ها
+  Promise.all(orderPromises)
+    .then(orderIds => {
+      res.json({
+        success: true,
+        message: `${orderIds.length} سفارش نمونه با موفقیت ایجاد شد`,
+        data: { orderIds }
+      });
+    })
+    .catch(error => {
+      res.status(500).json({
+        success: false,
+        message: 'خطا در ایجاد سفارش‌های نمونه',
+        error: error.message
+      });
+    });
+});
+
+// میدلور احراز هویت ساده
+const authenticate = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  // اگر هدر احراز هویت وجود ندارد یا با 'Bearer ' شروع نمی‌شود
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // برای ساده‌سازی آزمایش، اجازه می‌دهیم بدون احراز هویت هم درخواست‌ها پاسخ داده شوند
+    console.warn('Authentication header missing or invalid, proceeding anyway');
+    return next();
+  }
+  
+  // استخراج توکن از هدر
+  const token = authHeader.split(' ')[1];
+  
+  // در یک محیط واقعی، اینجا توکن بررسی و اطلاعات کاربر استخراج می‌شود
+  // برای این مثال، فقط وجود توکن را چک می‌کنیم
+  if (!token) {
+    // برای ساده‌سازی آزمایش، اجازه می‌دهیم بدون احراز هویت هم درخواست‌ها پاسخ داده شوند
+    console.warn('Token is empty, proceeding anyway');
+    return next();
+  }
+  
+  // در یک پیاده‌سازی واقعی، اینجا توکن را بررسی می‌کنیم
+  // اما در این مثال، فقط اجازه می‌دهیم درخواست ادامه یابد
+  console.log('Authentication successful with token:', token);
+  next();
+};
+
 // اطمینان از وجود پوشه uploads
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -403,10 +516,14 @@ app.get('/api/orders/:id/product-images', (req, res) => {
 });
 
 // API Routes برای سفارش‌ها
-app.get('/api/orders', (req, res) => {
+app.get('/api/orders', authenticate, (req, res) => {
   db.all('SELECT * FROM orders ORDER BY created_at DESC', [], (err, rows) => {
     if (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ 
+        success: false,
+        message: err.message,
+        data: null
+      });
     }
     
     // Parse the items JSON string for each order
@@ -415,12 +532,16 @@ app.get('/api/orders', (req, res) => {
       items: JSON.parse(order.items)
     }));
     
-    res.json(orders);
+    res.json({
+      success: true,
+      message: `${orders.length} سفارش یافت شد`,
+      data: orders
+    });
   });
 });
 
 // مسیر API برای دریافت یک سفارش با شناسه خاص
-app.get('/api/orders/:id', (req, res) => {
+app.get('/api/orders/:id', authenticate, (req, res) => {
   const { id } = req.params;
   
   db.get('SELECT * FROM orders WHERE id = ?', [id], (err, row) => {

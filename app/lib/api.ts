@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Order, ApiResponse } from './types';
 
 // آدرس API با آدرس سرور واقعی
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://5.34.204.73:3002/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 // متغیر برای کنترل وضعیت اتصال به سرور
 let isServerAvailable = false;
