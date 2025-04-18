@@ -6,7 +6,7 @@ const sqlite3 = require('sqlite3').verbose();
 const multer = require('multer');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 
 // بهبود تنظیمات CORS برای پاسخگویی به درخواست‌های OPTIONS
 app.use(cors({
