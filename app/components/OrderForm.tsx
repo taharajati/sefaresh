@@ -6,8 +6,17 @@ import { HexColorPicker } from 'react-colorful';
 import { orderSchema } from '../lib/validation';
 import { submitOrder } from '../lib/api';
 import { useState } from 'react';
-import { Upload, Image, Instagram, Palette, Store, Phone, Tag, MessageSquare, Plus, ArrowRight, MapPin, MessageCircle, Package, ShoppingCart, Globe, FileText, Users, CreditCard, Zap, ChevronDown, CheckCircle, DollarSign, PhoneCall, Languages, BookOpen, Layers, BarChart } from 'lucide-react';
+import { Upload, Image, Instagram, Palette, Store, Phone, Tag, MessageSquare, Plus, ArrowRight, MapPin, MessageCircle, Package, ShoppingCart, Globe, FileText, Users, CreditCard, Zap, ChevronDown, CheckCircle, DollarSign, PhoneCall, Languages, BookOpen, Layers, BarChart, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+
+// Add the new type definition
+type ProductImage = {
+  file: File;
+  preview: string;
+  title: string;
+  description: string;
+  category: string;
+};
 
 interface FormValues {
   // Basic Information
@@ -105,7 +114,7 @@ const OrderForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{success?: boolean; message?: string} | null>(null);
-  const [productImages, setProductImages] = useState<File[]>([]);
+  const [productImages, setProductImages] = useState<ProductImage[]>([]);
 
   const formik = useFormik<FormValues>({
     initialValues: {
@@ -172,9 +181,13 @@ const OrderForm = () => {
         
         // Add product images if any
         if (productImages.length > 0) {
-          productImages.forEach((file, index) => {
-            formData.append(`productImage_${index}`, file);
+          productImages.forEach((image, index) => {
+            formData.append(`productImage_${index}`, image.file);
+            formData.append(`productImageTitle_${index}`, image.title || '');
+            formData.append(`productImageDescription_${index}`, image.description || '');
+            formData.append(`productImageCategory_${index}`, image.category || '');
           });
+          formData.append('productImagesCount', String(productImages.length));
         }
         
         console.log('Submitting form with data:', values);
@@ -243,7 +256,15 @@ const OrderForm = () => {
       'image/*': ['.jpeg', '.jpg', '.png'],
     },
     onDrop: (acceptedFiles) => {
-      setProductImages([...productImages, ...acceptedFiles]);
+      // نمایش پیش‌نمایش تصاویر و اضافه کردن امکان اضافه کردن عنوان و توضیحات
+      const newImages = acceptedFiles.map(file => ({
+        file,
+        preview: URL.createObjectURL(file),
+        title: '',
+        description: '',
+        category: ''
+      }));
+      setProductImages([...productImages, ...newImages]);
     },
   });
 
@@ -745,6 +766,85 @@ const OrderForm = () => {
                 </div>
                 {formik.touched.productImages && formik.errors.productImages && (
                   <p className="form-error">{String(formik.errors.productImages)}</p>
+                )}
+                
+                {/* نمایش تصاویر آپلود شده و فیلدهای متادیتا */}
+                {productImages.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="text-sm font-medium text-gray-900 mb-4">تصاویر آپلود شده ({productImages.length})</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {productImages.map((image, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-start space-x-4 space-x-reverse">
+                            <div className="relative w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+                              <img 
+                                src={image.preview} 
+                                alt={`تصویر ${index + 1}`} 
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // حذف تصویر از آرایه
+                                  const newImages = [...productImages];
+                                  newImages.splice(index, 1);
+                                  setProductImages(newImages);
+                                }}
+                                className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl-lg"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <div className="flex-1">
+                              <div className="form-group">
+                                <label className="text-xs font-medium text-gray-700 mb-1">عنوان تصویر</label>
+                                <input
+                                  type="text"
+                                  value={image.title}
+                                  onChange={(e) => {
+                                    const newImages = [...productImages];
+                                    newImages[index].title = e.target.value;
+                                    setProductImages(newImages);
+                                  }}
+                                  className="block w-full px-3 py-2 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-violet-500 focus:border-violet-500"
+                                  placeholder="عنوان تصویر را وارد کنید"
+                                />
+                              </div>
+                              <div className="form-group mt-2">
+                                <label className="text-xs font-medium text-gray-700 mb-1">دسته‌بندی</label>
+                                <input
+                                  type="text"
+                                  value={image.category}
+                                  onChange={(e) => {
+                                    const newImages = [...productImages];
+                                    newImages[index].category = e.target.value;
+                                    setProductImages(newImages);
+                                  }}
+                                  className="block w-full px-3 py-2 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-violet-500 focus:border-violet-500"
+                                  placeholder="دسته‌بندی تصویر را وارد کنید"
+                                />
+                              </div>
+                              <div className="form-group mt-2">
+                                <label className="text-xs font-medium text-gray-700 mb-1">توضیحات</label>
+                                <textarea
+                                  value={image.description}
+                                  onChange={(e) => {
+                                    const newImages = [...productImages];
+                                    newImages[index].description = e.target.value;
+                                    setProductImages(newImages);
+                                  }}
+                                  rows={2}
+                                  className="block w-full px-3 py-2 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-violet-500 focus:border-violet-500"
+                                  placeholder="توضیحات تصویر را وارد کنید"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

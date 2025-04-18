@@ -99,6 +99,20 @@ db.serialize(() => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  
+  // ایجاد جدول تصاویر نمونه محصولات اگر وجود ندارد
+  db.run(`
+    CREATE TABLE IF NOT EXISTS product_images (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER,
+      title TEXT,
+      description TEXT,
+      category TEXT,
+      image_path TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders (id)
+    )
+  `);
 });
 
 // مسیر API برای آپلود تصویر
@@ -365,6 +379,29 @@ app.delete('/api/products/:id', (req, res) => {
   });
 });
 
+// مسیر API برای دریافت تصاویر نمونه محصولات
+app.get('/api/product-images', (req, res) => {
+  const sql = 'SELECT * FROM product_images ORDER BY created_at DESC';
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows);
+  });
+});
+
+// مسیر API برای دریافت تصاویر نمونه محصولات یک سفارش
+app.get('/api/orders/:id/product-images', (req, res) => {
+  const { id } = req.params;
+  const sql = 'SELECT * FROM product_images WHERE order_id = ? ORDER BY created_at DESC';
+  db.all(sql, [id], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows);
+  });
+});
+
 // API Routes برای سفارش‌ها
 app.get('/api/orders', (req, res) => {
   db.all('SELECT * FROM orders ORDER BY created_at DESC', [], (err, rows) => {
@@ -382,7 +419,7 @@ app.get('/api/orders', (req, res) => {
   });
 });
 
-app.post('/api/orders', (req, res) => {
+app.post('/api/orders', upload.array('productImage', 10), (req, res) => {
   const { customer, items, total } = req.body;
   
   if (!customer || !items || !total) {
@@ -397,20 +434,64 @@ app.post('/api/orders', (req, res) => {
       return res.status(500).json({ error: err.message });
     }
     
-    // Get the newly created order
-    db.get('SELECT * FROM orders WHERE id = ?', [this.lastID], (err, row) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
+    const orderId = this.lastID;
+    
+    // ذخیره تصاویر نمونه محصولات
+    const productImagesCount = parseInt(req.body.productImagesCount || '0', 10);
+    const productImagePromises = [];
+    
+    for (let i = 0; i < productImagesCount; i++) {
+      if (req.files && req.files[i]) {
+        const file = req.files[i];
+        const title = req.body[`productImageTitle_${i}`] || '';
+        const description = req.body[`productImageDescription_${i}`] || '';
+        const category = req.body[`productImageCategory_${i}`] || '';
+        const imagePath = `/uploads/${file.filename}`;
+        
+        const insertImagePromise = new Promise((resolve, reject) => {
+          const imageSql = `INSERT INTO product_images (order_id, title, description, category, image_path) VALUES (?, ?, ?, ?, ?)`;
+          db.run(imageSql, [orderId, title, description, category, imagePath], function(err) {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(this.lastID);
+            }
+          });
+        });
+        
+        productImagePromises.push(insertImagePromise);
       }
-      
-      // Parse the items JSON string
-      const order = {
-        ...row,
-        items: JSON.parse(row.items)
-      };
-      
-      res.status(201).json(order);
-    });
+    }
+    
+    // Get the newly created order
+    Promise.all(productImagePromises)
+      .then(() => {
+        db.get('SELECT * FROM orders WHERE id = ?', [orderId], (err, row) => {
+          if (err) {
+            return res.status(500).json({ error: err.message });
+          }
+          
+          // Parse the items JSON string
+          const order = {
+            ...row,
+            items: JSON.parse(row.items)
+          };
+          
+          // تصاویر نمونه محصولات را نیز دریافت کنید
+          db.all('SELECT * FROM product_images WHERE order_id = ?', [orderId], (err, images) => {
+            if (err) {
+              return res.status(500).json({ error: err.message });
+            }
+            
+            order.productImages = images;
+            res.status(201).json(order);
+          });
+        });
+      })
+      .catch(error => {
+        console.error('Error saving product images:', error);
+        res.status(201).json({ id: orderId, message: 'Order created but had errors saving images' });
+      });
   });
 });
 
@@ -544,6 +625,45 @@ app.delete('/api/categories/:id', (req, res) => {
       }
       
       res.status(200).json({ message: 'دسته‌بندی با موفقیت حذف شد' });
+    });
+  });
+});
+
+// مسیر API برای حذف تصویر نمونه محصول
+app.delete('/api/product-images/:id', (req, res) => {
+  const { id } = req.params;
+  
+  // ابتدا فایل تصویر را پیدا می‌کنیم
+  db.get('SELECT image_path FROM product_images WHERE id = ?', [id], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (!row) {
+      return res.status(404).json({ error: 'تصویر مورد نظر یافت نشد' });
+    }
+    
+    // حذف رکورد از دیتابیس
+    db.run('DELETE FROM product_images WHERE id = ?', [id], function(err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'تصویر مورد نظر یافت نشد' });
+      }
+      
+      // حذف فایل فیزیکی تصویر (اختیاری)
+      const filePath = path.join(__dirname, row.image_path.replace('/uploads/', 'uploads/'));
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (error) {
+        console.error('Error deleting image file:', error);
+      }
+      
+      res.json({ message: 'تصویر با موفقیت حذف شد' });
     });
   });
 });
