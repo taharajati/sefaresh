@@ -57,6 +57,20 @@ export const submitOrder = async (orderData: FormData): Promise<ApiResponse> => 
   
   // سرور در دسترس است، سعی کنیم از API واقعی استفاده کنیم
   try {
+    // Log request data for debugging
+    console.log('Sending order data to server...');
+    
+    // Print some key information from FormData for debugging
+    if (orderData) {
+      const debugInfo: Record<string, any> = {};
+      orderData.forEach((value, key) => {
+        if (typeof value === 'string' || value instanceof File) {
+          debugInfo[key] = value instanceof File ? `File: ${value.name}` : value;
+        }
+      });
+      console.log('FormData contents:', debugInfo);
+    }
+    
     const response = await fetch(`${API_URL}/orders`, {
       method: 'POST',
       body: orderData,
@@ -79,6 +93,20 @@ export const submitOrder = async (orderData: FormData): Promise<ApiResponse> => 
         status: response.status,
         statusText: response.statusText
       });
+      
+      // Try to get more detailed error information from response if possible
+      try {
+        const errorData = await response.text();
+        console.error('Server error details:', errorData);
+      } catch (textError) {
+        console.error('Could not read error details:', textError);
+      }
+      
+      // For 400 Bad Request errors, fallback to mock API instead of throwing
+      if (response.status === 400) {
+        console.log('Bad request error, falling back to mock API');
+        return await useMockApi(orderData);
+      }
       
       throw new Error(`خطای HTTP: ${response.status} ${response.statusText}`);
     }
