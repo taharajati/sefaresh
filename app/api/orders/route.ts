@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getOrdersFromDb, saveOrderToDb } from '../../../database/db-helper';
-import { saveOrder } from '../../../database/sqlite';
+import { saveOrder, getAllOrders, countOrders } from '../../../database/sqlite';
 
 // GET handler - retrieve all orders
 export async function GET(request: NextRequest) {
@@ -14,14 +13,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all orders from SQLite using the server-only helper
-    const result = await getOrdersFromDb();
+    console.log('Processing GET /api/orders request');
     
-    return NextResponse.json(result);
+    // Get all orders directly from SQLite
+    const orders = getAllOrders();
+    const count = countOrders();
+    
+    console.log(`Retrieved ${orders.length} orders from database (total count: ${count})`);
+    
+    return NextResponse.json({
+      success: true,
+      message: `${orders.length} سفارش یافت شد`,
+      data: orders
+    });
   } catch (error) {
     console.error('Error in GET /api/orders:', error);
     return NextResponse.json(
-      { success: false, message: 'خطا در دریافت سفارش‌ها' },
+      { success: false, message: `خطا در دریافت سفارش‌ها: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     );
   }
@@ -30,6 +38,7 @@ export async function GET(request: NextRequest) {
 // POST handler - create a new order
 export async function POST(request: NextRequest) {
   try {
+    console.log('Processing POST /api/orders request');
     const formData = await request.formData();
     
     // Log the received data for debugging
@@ -92,46 +101,32 @@ export async function POST(request: NextRequest) {
       createdAt
     };
     
-    try {
-      // Try to save order using the server-only helper
-      const result = await saveOrderToDb(order);
-      if (!result.success) {
-        console.log('Falling back to direct save method');
-        // If that fails, try direct method
-        const directResult = saveOrder(order);
-        if (directResult) {
-          return NextResponse.json({
-            success: true,
-            message: 'سفارش شما با موفقیت ثبت شد',
-            data: order
-          });
-        }
-      } else {
-        return NextResponse.json(result);
-      }
-    } catch (error) {
-      console.error('Failed to save order, trying direct method:', error);
-      // If helper method throws an error, try direct method
-      const directResult = saveOrder(order);
-      if (directResult) {
-        return NextResponse.json({
-          success: true,
-          message: 'سفارش شما با موفقیت ثبت شد',
-          data: order
-        });
-      }
-    }
+    // Save the order directly to SQLite
+    const result = saveOrder(order);
     
-    // If all methods fail, return error
-    return NextResponse.json({
-      success: false,
-      message: 'خطا در ثبت سفارش',
-      data: null
-    });
+    if (result) {
+      console.log(`Order ${order.id} successfully saved to database`);
+      return NextResponse.json({
+        success: true,
+        message: 'سفارش شما با موفقیت ثبت شد',
+        data: order
+      });
+    } else {
+      console.error(`Failed to save order ${order.id} to database`);
+      return NextResponse.json({
+        success: false,
+        message: 'خطا در ثبت سفارش',
+        data: null
+      }, { status: 500 });
+    }
   } catch (error) {
     console.error('Error in POST /api/orders:', error);
     return NextResponse.json(
-      { success: false, message: 'خطا در ثبت سفارش' },
+      { 
+        success: false, 
+        message: `خطا در ثبت سفارش: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

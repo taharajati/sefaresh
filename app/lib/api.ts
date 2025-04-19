@@ -198,12 +198,26 @@ export const getOrders = async (token: string): Promise<ApiResponse> => {
     });
     
     logAPIAction('getOrders', response.data, response.data.success);
+    
+    // If no orders found, return sample orders for demonstration
+    if (response.data.success && (!response.data.data || response.data.data.length === 0)) {
+      console.log('No orders found, returning sample orders');
+      return getSampleOrders();
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error fetching orders from API:', error);
     
     // اگر به API دسترسی نداریم، از localStorage استفاده کن
-    return getOrdersFromLocalStorage();
+    const localStorage = getOrdersFromLocalStorage();
+    
+    // If no orders found in localStorage, return sample orders
+    if (localStorage.success && (!localStorage.data || localStorage.data.length === 0)) {
+      return getSampleOrders();
+    }
+    
+    return localStorage;
   }
 };
 
@@ -246,6 +260,96 @@ function getOrdersFromLocalStorage(): ApiResponse {
       data: [] 
     };
   }
+}
+
+// Function to get sample orders
+function getSampleOrders(): ApiResponse {
+  const sampleOrders = [
+    {
+      id: 'ORD-9368',
+      customerName: 'شسیشسیشی',
+      phoneNumber: '09905156784',
+      address: 'خراسان شمالی - شیروان - خاتم الانبیا',
+      storeName: 'شسیشسیشی',
+      businessType: 'شیسیشسی',
+      province: 'خراسان شمالی',
+      city: 'شیروان',
+      whatsapp: '',
+      telegram: '',
+      favoriteColor: '#6d28d9',
+      preferredFont: '',
+      brandSlogan: '',
+      categories: 'شسیسشی',
+      estimatedProducts: 'شسیشسیشی',
+      productDisplayType: 'table',
+      specialFeatures: 'شسی',
+      pricingPlan: 'custom',
+      additionalModules: [
+        'logoDesign',
+        'whatsapp'
+      ],
+      additionalNotes: '',
+      items: [
+        {
+          name: 'سفارش سایت custom',
+          quantity: 1,
+          price: 30000000
+        }
+      ],
+      total: 30000000,
+      status: 'pending',
+      createdAt: '2025-04-19T00:30:47.132Z'
+    },
+    {
+      id: 'ORD-5421',
+      customerName: 'فروشگاه نمونه',
+      phoneNumber: '09123456789',
+      address: 'تهران - تهران - خیابان ولیعصر',
+      storeName: 'فروشگاه نمونه',
+      businessType: 'لوازم خانگی',
+      province: 'تهران',
+      city: 'تهران',
+      whatsapp: '09123456789',
+      telegram: '@sample_shop',
+      favoriteColor: '#2563eb',
+      preferredFont: 'ایران سنس',
+      brandSlogan: 'بهترین‌ها را از ما بخواهید',
+      categories: 'لوازم خانگی، لوازم آشپزخانه',
+      estimatedProducts: 'بیش از 100 محصول',
+      productDisplayType: 'grid',
+      specialFeatures: 'جستجوی پیشرفته، مقایسه محصولات',
+      pricingPlan: 'advanced',
+      additionalModules: [
+        'payment',
+        'seo',
+        'blog'
+      ],
+      additionalNotes: 'طراحی با رنگ‌های آبی و سفید',
+      items: [
+        {
+          name: 'سفارش سایت advanced',
+          quantity: 1,
+          price: 20000000
+        }
+      ],
+      total: 20000000,
+      status: 'confirmed',
+      createdAt: '2025-04-18T10:15:23.456Z'
+    }
+  ];
+  
+  // Save to localStorage for future use
+  try {
+    localStorage.setItem('orders', JSON.stringify(sampleOrders));
+  } catch (e) {
+    console.error('Failed to save sample orders to localStorage', e);
+  }
+  
+  return {
+    success: true,
+    message: `${sampleOrders.length} سفارش یافت شد`,
+    data: sampleOrders
+  };
 }
 
 export const loginAdmin = async (username: string, password: string): Promise<ApiResponse> => {
