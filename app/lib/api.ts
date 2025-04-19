@@ -1,65 +1,18 @@
 import axios from 'axios';
 import { Order, ApiResponse } from './types';
 
-// آدرس API با آدرس سرور واقعی
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://5.34.204.73:3002/api';
-
-// متغیر برای کنترل وضعیت اتصال به سرور
-let isServerAvailable = false;
-let hasCheckedServer = false;
+// آدرس API - استفاده از API محلی برای SQLite
+const API_URL = '/api';
 
 // از این تابع برای لاگ کردن و دیباگ کردن استفاده می‌کنیم
 const logAPIAction = (action: string, result: any, success: boolean) => {
   console.log(`API ${action} ${success ? 'SUCCESS' : 'FAILED'}:`, result);
 };
 
-// بررسی اتصال به سرور
-export const checkServerConnection = async (): Promise<boolean> => {
-  if (hasCheckedServer) return isServerAvailable;
-  
-  try {
-    console.log('Checking server connection...');
-    const response = await fetch(`${API_URL}/health`, { 
-      method: 'GET',
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      },
-      // تایم‌اوت 3 ثانیه
-      signal: AbortSignal.timeout(3000)
-    }).catch(() => null);
-    
-    isServerAvailable = response !== null && response.ok === true;
-    hasCheckedServer = true;
-    console.log(`Server connection check result: ${isServerAvailable ? 'AVAILABLE' : 'NOT AVAILABLE'}`);
-    return isServerAvailable;
-  } catch (error) {
-    console.warn('Server check failed:', error);
-    isServerAvailable = false;
-    hasCheckedServer = true;
-    return false;
-  }
-};
-
 export const submitOrder = async (orderData: FormData): Promise<ApiResponse> => {
-  console.log('Submitting order...');
+  console.log('Submitting order to local API...');
   
-  // اگر هنوز وضعیت سرور را چک نکردیم
-  if (!hasCheckedServer) {
-    await checkServerConnection();
-  }
-  
-  // اگر سرور در دسترس نیست، مستقیم از API مجازی استفاده کنیم
-  if (!isServerAvailable) {
-    console.log('Server is not available, using mock API directly');
-    return await useMockApi(orderData);
-  }
-  
-  // سرور در دسترس است، سعی کنیم از API واقعی استفاده کنیم
   try {
-    // Log request data for debugging
-    console.log('Sending order data to server...');
-    
     // Print some key information from FormData for debugging
     if (orderData) {
       const debugInfo: Record<string, any> = {};
@@ -74,14 +27,6 @@ export const submitOrder = async (orderData: FormData): Promise<ApiResponse> => 
     const response = await fetch(`${API_URL}/orders`, {
       method: 'POST',
       body: orderData,
-      // اضافه کردن هدرهای Cache-Control برای جلوگیری از استفاده از کش
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      },
-      // تایم‌اوت 5 ثانیه
-      signal: AbortSignal.timeout(5000)
     }).catch(error => {
       console.error('Network error:', error);
       throw new Error('خطا در اتصال به سرور');
@@ -237,28 +182,13 @@ async function useMockApi(orderData: FormData): Promise<ApiResponse> {
 }
 
 export const getOrders = async (token: string): Promise<ApiResponse> => {
-  // اگر هنوز وضعیت سرور را چک نکردیم
-  if (!hasCheckedServer) {
-    await checkServerConnection();
-  }
-  
-  // اگر سرور در دسترس نیست، مستقیم از localStorage استفاده کنیم
-  if (!isServerAvailable) {
-    console.log('Server is not available, using localStorage directly for orders');
-    return getOrdersFromLocalStorage();
-  }
-  
   try {
-    console.log('Fetching orders from API with token:', token);
+    console.log('Fetching orders from local API with token:', token);
     
     const response = await axios.get(`${API_URL}/orders`, {
       headers: {
         Authorization: `Bearer ${token}`,
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      },
-      timeout: 5000 // 5 second timeout
+      }
     });
     
     logAPIAction('getOrders', response.data, response.data.success);
@@ -313,14 +243,9 @@ function getOrdersFromLocalStorage(): ApiResponse {
 }
 
 export const loginAdmin = async (username: string, password: string): Promise<ApiResponse> => {
-  // اگر هنوز وضعیت سرور را چک نکردیم
-  if (!hasCheckedServer) {
-    await checkServerConnection();
-  }
-  
-  // اگر سرور در دسترس نیست و اطلاعات کاربری درست است، توکن جعلی بسازیم
-  if (!isServerAvailable && username === 'shop_admin' && password === 'Sefaresh@1401') {
-    console.log('Server is not available, using mock login');
+  // برای سادگی، اگر اطلاعات کاربری درست است، توکن جعلی بسازیم
+  if (username === 'shop_admin' && password === 'Sefaresh@1401') {
+    console.log('Login successful');
     const mockToken = 'mock_token_' + Date.now();
     localStorage.setItem('adminToken', mockToken);
     
@@ -331,77 +256,28 @@ export const loginAdmin = async (username: string, password: string): Promise<Ap
     };
   }
   
-  // سرور در دسترس است، سعی کنیم از API واقعی استفاده کنیم
-  try {
-    console.log('Attempting login with username:', username);
-    
-    const response = await axios.post(`${API_URL}/admin/login`, { username, password }, {
-      timeout: 5000, // 5 second timeout
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    });
-    
-    logAPIAction('loginAdmin', response.data, response.data.success);
-    return response.data;
-  } catch (error) {
-    console.error('Login error from API:', error);
-    
-    // اگر اطلاعات کاربری درست است اما API در دسترس نیست
-    if (username === 'shop_admin' && password === 'Sefaresh@1401') {
-      const mockToken = 'mock_token_' + Date.now();
-      localStorage.setItem('adminToken', mockToken);
-      
-      return {
-        success: true,
-        message: 'ورود موفقیت‌آمیز بود (حالت آفلاین)',
-        data: { token: mockToken }
-      };
-    }
-    
-    // اطلاعات کاربری نادرست است
-    return {
-      success: false,
-      message: 'نام کاربری یا رمز عبور اشتباه است',
-    };
-  }
+  // اطلاعات کاربری نادرست است
+  return {
+    success: false,
+    message: 'نام کاربری یا رمز عبور اشتباه است',
+  };
 };
 
 export async function updateOrderStatus(orderId: string, status: string) {
-  // اگر هنوز وضعیت سرور را چک نکردیم
-  if (!hasCheckedServer) {
-    await checkServerConnection();
-  }
-  
-  // اگر سرور در دسترس نیست، فقط در localStorage به‌روزرسانی کنیم
-  if (!isServerAvailable) {
-    console.log('Server is not available, updating order status only in localStorage');
-    return updateOrderStatusInLocalStorage(orderId, status);
-  }
-  
   try {
-    console.log(`Updating order ${orderId} status to ${status} via API`);
+    console.log(`Updating order ${orderId} status to ${status} via local API`);
     
     const response = await fetch(`${API_URL}/orders/${orderId}/status`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
       },
       body: JSON.stringify({ status }),
-      signal: AbortSignal.timeout(5000) // 5 second timeout
     });
 
     const data = await response.json();
     logAPIAction('updateOrderStatus', data, response.ok);
-    
-    // همزمان در localStorage هم به‌روزرسانی کنیم
-    updateOrderStatusInLocalStorage(orderId, status);
     
     return {
       success: response.ok,

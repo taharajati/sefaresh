@@ -6,17 +6,13 @@ const nextConfig: NextConfig = {
     buildActivity: true,
     buildActivityPosition: 'bottom-right',
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*',
-      },
-      {
-        source: '/uploads/:path*',
-        destination: 'http://localhost:3001/uploads/:path*',
-      }
-    ];
+  // Remove rewrites since we're using local API now
+  webpack: (config, { isServer }) => {
+    // We need this for better-sqlite3 to work with Next.js
+    if (isServer) {
+      config.externals = [...config.externals, 'better-sqlite3'];
+    }
+    return config;
   },
   images: {
     domains: ['localhost'],
