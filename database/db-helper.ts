@@ -23,7 +23,20 @@ export async function getOrdersFromDb() {
 
 export async function saveOrderToDb(order: any) {
   try {
+    // Add early return for missing data
+    if (!order || !order.id) {
+      console.error('Invalid order object provided to saveOrderToDb');
+      return {
+        success: false,
+        message: 'اطلاعات سفارش ناقص است',
+        data: null
+      };
+    }
+
+    console.log('Attempting to save order:', order.id);
     const result = saveOrder(order);
+    console.log('Save result:', result);
+    
     if (result) {
       return {
         success: true,

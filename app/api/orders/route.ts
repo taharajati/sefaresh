@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrdersFromDb, saveOrderToDb } from '../../../database/db-helper';
+import { saveOrder } from '../../../database/sqlite';
 
 // GET handler - retrieve all orders
 export async function GET(request: NextRequest) {
@@ -30,6 +31,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
+    
+    // Log the received data for debugging
+    console.log('Received form data with fields:', Array.from(formData.keys()));
     
     // Convert FormData to a regular object
     const formObject: Record<string, any> = {};
@@ -88,10 +92,42 @@ export async function POST(request: NextRequest) {
       createdAt
     };
     
-    // Save order to SQLite using the server-only helper
-    const result = await saveOrderToDb(order);
+    try {
+      // Try to save order using the server-only helper
+      const result = await saveOrderToDb(order);
+      if (!result.success) {
+        console.log('Falling back to direct save method');
+        // If that fails, try direct method
+        const directResult = saveOrder(order);
+        if (directResult) {
+          return NextResponse.json({
+            success: true,
+            message: 'سفارش شما با موفقیت ثبت شد',
+            data: order
+          });
+        }
+      } else {
+        return NextResponse.json(result);
+      }
+    } catch (error) {
+      console.error('Failed to save order, trying direct method:', error);
+      // If helper method throws an error, try direct method
+      const directResult = saveOrder(order);
+      if (directResult) {
+        return NextResponse.json({
+          success: true,
+          message: 'سفارش شما با موفقیت ثبت شد',
+          data: order
+        });
+      }
+    }
     
-    return NextResponse.json(result);
+    // If all methods fail, return error
+    return NextResponse.json({
+      success: false,
+      message: 'خطا در ثبت سفارش',
+      data: null
+    });
   } catch (error) {
     console.error('Error in POST /api/orders:', error);
     return NextResponse.json(

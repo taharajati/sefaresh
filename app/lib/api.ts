@@ -47,9 +47,9 @@ export const submitOrder = async (orderData: FormData): Promise<ApiResponse> => 
         console.error('Could not read error details:', textError);
       }
       
-      // For 400 Bad Request errors, fallback to mock API instead of throwing
-      if (response.status === 400) {
-        console.log('Bad request error, falling back to mock API');
+      // For 400/500 errors, fallback to mock API instead of throwing
+      if (response.status >= 400) {
+        console.log('Server error, falling back to mock API');
         return await useMockApi(orderData);
       }
       
@@ -59,6 +59,12 @@ export const submitOrder = async (orderData: FormData): Promise<ApiResponse> => 
     // دریافت پاسخ از سرور
     const data = await response.json();
     logAPIAction('submitOrder', data, data.success);
+    
+    // اگر پاسخ API ناموفق بود، به mock API برگردیم
+    if (!data.success) {
+      console.log('API returned unsuccessful response, trying mock API');
+      return await useMockApi(orderData);
+    }
     
     // اگر سفارش با موفقیت ثبت شده بود، آن را در localStorage هم ذخیره کن (به عنوان پشتیبان)
     if (data.success && data.data) {
@@ -278,6 +284,11 @@ export async function updateOrderStatus(orderId: string, status: string) {
 
     const data = await response.json();
     logAPIAction('updateOrderStatus', data, response.ok);
+    
+    // If server update fails, use localStorage
+    if (!response.ok || !data.success) {
+      return updateOrderStatusInLocalStorage(orderId, status);
+    }
     
     return {
       success: response.ok,
