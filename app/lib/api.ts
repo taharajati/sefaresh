@@ -125,9 +125,17 @@ async function useMockApi(orderData: FormData): Promise<ApiResponse> {
   try {
     // تبدیل FormData به یک آبجکت ساده
     const formObject: Record<string, any> = {};
-    orderData.forEach((value, key) => {
-      formObject[key] = value;
-    });
+    
+    // Check if orderData is defined before using forEach
+    if (orderData) {
+      orderData.forEach((value, key) => {
+        formObject[key] = value;
+      });
+    } else {
+      console.error('orderData is undefined in useMockApi');
+      // Use default values if orderData is undefined
+      formObject.pricingPlan = 'standard';
+    }
     
     // ایجاد یک شناسه منحصر به فرد برای سفارش
     const orderId = 'ORD-' + Math.floor(Math.random() * 10000);
